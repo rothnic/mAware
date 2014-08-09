@@ -129,6 +129,9 @@ gui.ViewAxes = axes( 'Parent', p );
 
     function onListSelection( source, ~)
         disp(source);
+        ctrlPanel = uiextras.BoxPanel( ...
+        'Parent', mainLayout, ...
+        'Title', 'Select a demo:' );
     end
 
 
