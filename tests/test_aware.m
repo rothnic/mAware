@@ -9,7 +9,6 @@ function test_aware_class_init(testCase)
 aw = aware();
 end
 
-
 %% Optional file fixtures  
 function setupOnce(testCase)  % do not change function name
 % set a new path, for example
