@@ -1,0 +1,3 @@
+[submodule "external/uigetvariables"]
+	path = external/uigetvariables
+	url = https://github.com/rothnic/uigetvariables

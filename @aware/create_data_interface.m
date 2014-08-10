@@ -25,20 +25,6 @@ function [ gui ] = create_data_interface( obj, demoList )
 % Date:         07-Aug-2014
 % Update:
 
-%% Input Parsing
-%     % Setup input parsing
-%     p = inputParser;
-%     p.FunctionName = 'create_data_interface';
-%     p.addRequired('requiredInput');
-%     p.addParameter('optionalInput1', 'myDefaultValue', @isstr);
-%     p.addParameter('optionalInput2', 100, @isscalar);
-%     p.parse(requiredInput, varargin{:});
-%
-%     % Assign function variables
-%     requiredInput = requiredProp;
-%     optionalInput1 = p.Results.optionalInput1;
-%     optionalInput2 = p.Results.optionalInput2;
-
 %% Primary function logic begins here
 import tools.*
 
@@ -61,87 +47,94 @@ gui.Window = figure( ...
 uiextras.set( gui.Window, 'DefaultBoxPanelTitleColor', [0.7 1.0 0.7] );
 
 %% Setup Menus
-% + File menu
+% Setup File menu
 gui.FileMenu = uimenu( gui.Window, 'Label', 'File' );
 uimenu( gui.FileMenu, 'Label', 'Exit', 'Callback', @onExit );
 
-% + View menu
+% Setup View menu
 gui.ViewMenu = uimenu( gui.Window, 'Label', 'View' );
 for ii=1:numel( demoList )
     uimenu( gui.ViewMenu, 'Label', demoList{ii}, 'Callback', @onMenuSelection );
 end
 
-% + Help menu
+% Setup Help menu
 helpMenu = uimenu( gui.Window, 'Label', 'Help' );
 uimenu( helpMenu, 'Label', 'Documentation', 'Callback', @onHelp );
 
-% Arrange the main interface
+%% Setup the main interface as a horizontal layout
 mainLayout = uiextras.HBoxFlex( 'Parent', gui.Window, 'Spacing', 3 );
 
-%% + Create the panels
+%% Create the main panels
+% Control Panels
 controlPanel1 = uiextras.BoxPanel( ...
     'Parent', mainLayout, ...
     'Title', 'Select a demo:' );
-controlPanel2 = uiextras.BoxPanel( ...
-    'Parent', mainLayout, ...
-    'Title', 'Select a demo:' );
+
+% Plots are contained in a verticle layout panel
 gui.ViewPanelVert = uiextras.VBoxFlex( 'Parent', mainLayout, ...
     'Padding', 3, 'Spacing', 3 );
+
+% There is one button at the top to add more rows
 gui.NewVertViewButton = uicontrol('Parent', gui.ViewPanelVert, ...
-    'String', '+', 'Callback', @addVertView);
+    'String', '+', 'Callback', @addRow);
 
 % Each row is a HBox
-gui.ViewPanel = uiextras.HBoxFlex( ...
-    'Parent', gui.ViewPanelVert );
+gui.ViewPanel = uiextras.HBoxFlex( 'Parent', gui.ViewPanelVert );
+
 % Each row has a button to add more views
 gui.NewHorzViewButton = uicontrol('Parent', gui.ViewPanel, ...
-    'String', '+', 'Callback', @addHView);
-% Each view requires a box panel to sit in
+    'String', '+', 'Callback', @addPlot);
+
+% Each plot requires a box panel to sit in
 gui.viewArea = uiextras.BoxPanel( ...
     'Parent', gui.ViewPanel, ...
     'Title', 'Viewing: ???', ...
     'HelpFcn', @onDemoHelp );
+
 % Set Button and initial View sizes
 set( gui.ViewPanel, 'Sizes', [15 -1]  );
 set( gui.ViewPanelVert, 'Sizes', [15, -1]  );
 
-%% + Adjust the main layout
-set( mainLayout, 'Sizes', [-1 -2 -3]  );
+%% Adjust the main layout
+set( mainLayout, 'Sizes', [-1 -3]  );
 
-%% + Create the controls
+%% Create the data source configuration components
 controlLayout1 = uiextras.VBox( 'Parent', controlPanel1, ...
     'Padding', 3, 'Spacing', 3 );
-controlLayout2 = uiextras.VBox( 'Parent', controlPanel2, ...
-    'Padding', 3, 'Spacing', 3 );
+gui.dataButton = uicontrol( 'Style', 'PushButton', ...
+    'Parent', controlLayout1, ...
+    'String', 'Data Source', ...
+    'Callback', @getData );
 gui.ListBox1 = uicontrol( 'Style', 'list', ...
     'BackgroundColor', 'w', ...
     'Parent', controlLayout1, ...
     'String', demoList(:), ...
     'Value', 1, ...
     'Callback', @onListSelection);
-gui.ListBox2 = uicontrol( 'Style', 'list', ...
-    'BackgroundColor', 'w', ...
-    'Parent', controlLayout2, ...
-    'String', demoList(:), ...
-    'Value', 1, ...
-    'Callback', @onList2Selection);
 gui.HelpButton = uicontrol( 'Style', 'PushButton', ...
     'Parent', controlLayout1, ...
     'String', 'Help for <demo>', ...
     'Callback', @onDemoHelp );
-set( controlLayout1, 'Sizes', [-1 28] ); % Make the list fill the space
-set( controlLayout2, 'Sizes', [-1] );
 
-%% + Create the plot view
+% Set the layout wieghts
+% Negative numbers vary with resize with a weight, constant numbers don't
+set( controlLayout1, 'Sizes', [28 -1 28] ); % List1 and help button
+
+%% Create the initial plot view
 gui.ViewAxes = setup_axes(gui.viewArea);
 
 %% Callback Functions
-    function addVertView( source, ~)
+    function getData( source, ~)
+        datasource = uigetvariables('Data Source', 'InputTypes', 'table');
+    end
+
+    function addRow( source, ~)
+        %ADDVERTVIEW - Adds a new row to the graph grid
         
         newHorzViewPanel = uiextras.HBoxFlex( ...
             'Parent', gui.ViewPanelVert );
         NewHorzViewButton = uicontrol('Parent', newHorzViewPanel, ...
-            'String', '+', 'Callback', @addHView);
+            'String', '+', 'Callback', @addPlot);
         newAxisContainer = uiextras.BoxPanel( ...
             'Parent', newHorzViewPanel, ...
             'Title', 'Select a demo:' );
@@ -150,7 +143,9 @@ gui.ViewAxes = setup_axes(gui.viewArea);
         set( newHorzViewPanel, 'Sizes', [15 -1]  );
     end
 
-    function addHView( source, ~)
+    function addPlot( source, ~)
+        %ADDHVIEW - Adds a new graph to the associated rows
+        
         srcObj = get(source);
         parent = srcObj.Parent;
         ctrlPanel = uiextras.BoxPanel( ...
@@ -160,6 +155,7 @@ gui.ViewAxes = setup_axes(gui.viewArea);
     end
 
     function button_handler(source, ~)
+        %BUTTON_HANDLER - Handles mouse clicks on the graphs
         
         % Get the object that was pressed
         thisObj = get(source);
@@ -194,7 +190,10 @@ gui.ViewAxes = setup_axes(gui.viewArea);
         end
     end
 
+%% Helper Functions
     function ax = setup_axes(panel)
+        %SETUP_AXES - Creates a standard axis for the given panel
+        
         ax = axes( 'Parent', panel, ...
             'ButtonDownFcn', @button_handler);
     end
