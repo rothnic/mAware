@@ -1,28 +1,17 @@
-function [ out ] = create_data_interface( obj, demoList )
-%CREATE_DATA_INTERFACE - One line description of what the function or script performs (H1 line)
-%   CREATE_DATA_INTERFACE has a second line of description that can go on to additional
-%   lines if needed, for a more detailed description
+function [ gui ] = create_data_interface( obj, demoList )
+%CREATE_DATA_INTERFACE - Sets up interface for exploring multivariate data
 %
 % SYNTAX:
-%   [ output1 ] = create_data_interface( requiredInput )
-%   create_data_interface( requiredInput, 'optionalInput1', 'optionalInputValue' )
-%   create_data_interface( requiredInput, 'optionalInput2', 50 )
+%   [ guiStruct ] = create_data_interface( obj, demoList )
 %
 % Description:
-%   [ output_args ] = create_data_interface( requiredInput ) further description about
-%        the use of the function can be added here.
 %
 % INPUTS:
-%   requiredInput - Description
-%   optionalInput1 - Description
-%   optionalInput2 - Description
 %
 % OUTPUTS:
 %   output1 - Description
 %
 % EXAMPLES:
-%   Line 1 of multi-line use case goes here
-%   Line 2...
 %
 % M-FILES required: none
 %
@@ -51,12 +40,18 @@ function [ out ] = create_data_interface( obj, demoList )
 %     optionalInput2 = p.Results.optionalInput2;
 
 %% Primary function logic begins here
+import tools.*
+
 % Create the user interface for the application and return a
 % structure of handles for global use.
 gui = struct();
+
+% Globals
+gui.selectedPanel = 0;
+
 % Open a window and add some menus
 gui.Window = figure( ...
-    'Name', 'Gallery browser', ...
+    'Name', 'aware', ...
     'NumberTitle', 'off', ...
     'MenuBar', 'none', ...
     'Toolbar', 'none', ...
@@ -94,7 +89,6 @@ gui.ViewPanelVert = uiextras.VBoxFlex( 'Parent', mainLayout, ...
     'Padding', 3, 'Spacing', 3 );
 gui.NewVertViewButton = uicontrol('Parent', gui.ViewPanelVert, ...
     'String', '+', 'Callback', @addVertView);
-
 
 % Each row is a HBox
 gui.ViewPanel = uiextras.HBoxFlex( ...
@@ -139,8 +133,7 @@ set( controlLayout1, 'Sizes', [-1 28] ); % Make the list fill the space
 set( controlLayout2, 'Sizes', [-1] );
 
 %% + Create the plot view
-p = gui.viewArea;
-gui.ViewAxes = axes( 'Parent', p );
+gui.ViewAxes = setup_axes(gui.viewArea);
 
 %% Callback Functions
     function addVertView( source, ~)
@@ -152,7 +145,7 @@ gui.ViewAxes = axes( 'Parent', p );
         newAxisContainer = uiextras.BoxPanel( ...
             'Parent', newHorzViewPanel, ...
             'Title', 'Select a demo:' );
-        newView = axes( 'Parent', newAxisContainer );
+        newView = setup_axes(newAxisContainer);
         
         set( newHorzViewPanel, 'Sizes', [15 -1]  );
     end
@@ -162,8 +155,48 @@ gui.ViewAxes = axes( 'Parent', p );
         parent = srcObj.Parent;
         ctrlPanel = uiextras.BoxPanel( ...
         'Parent', parent, ...
-        'Title', 'Select a demo:' );
-        newView = axes( 'Parent', ctrlPanel );
+        'Title', 'Select a demo:');
+        newView = setup_axes(ctrlPanel);
+    end
+
+    function button_handler(source, ~)
+        
+        % Get the object that was pressed
+        thisObj = get(source);
+        parent = get(source, 'Parent'); % parent of current object
+        
+        % If we have a selection, loop through them and reset
+        if gui.selectedPanel ~= 0
+            for i = 1:length(gui.selectedPanel)
+                set(gui.selectedPanel, 'BorderType', 'etchedin')
+            end
+        end
+        
+        % Get button press type
+        buttonType = get(gui.Window, 'SelectionType');
+        
+        % Do different things for each button press
+        switch buttonType
+            case 'normal'
+                gui.selectedPanel = parent;
+            case 'extend'
+                pass;
+            case 'alt'
+                len = length(gui.selectedPanel);
+                gui.selectedPanel(len+1) = parent;
+            case 'open'
+                pass;
+        end  
+        
+        % Loop through each selected panel and set their style
+        for i = 1:length(gui.selectedPanel)
+            set(gui.selectedPanel, 'BorderType', 'beveledin');
+        end
+    end
+
+    function ax = setup_axes(panel)
+        ax = axes( 'Parent', panel, ...
+            'ButtonDownFcn', @button_handler);
     end
 
 end % createInterface
