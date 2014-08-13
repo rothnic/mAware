@@ -167,10 +167,13 @@ classdef data_interface < handle
             
             [dataSources, dsNames] = uigetvariables('Data Source', 'InputTypes', 'table');
             %TODO: implement plot to data source mapping
-            gui.dataSource = dataSources{1,1}; %TODO: handle multiple data sources?
-            gui.listValues = gui.dataSource.Properties.VariableNames;
-            set(gui.xMenu, 'String', gui.listValues);
-            set(gui.yMenu, 'String', gui.listValues);
+            
+            if ~isempty(dataSources)
+                gui.dataSource = dataSources{1,1}; %TODO: handle multiple data sources?
+                gui.listValues = gui.dataSource.Properties.VariableNames;
+                set(gui.xMenu, 'String', gui.listValues);
+                set(gui.yMenu, 'String', gui.listValues);
+            end
         end
         
         function updatePlot( source, ~, gui )
