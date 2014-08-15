@@ -4,12 +4,12 @@ classdef aware < handle
     %   descriptions can include multiple lines of text if needed.
     %
     % SYNTAX:
-    %   myObject = aware( requiredProp )
-    %   myObject = aware( requiredProp, 'optionalInput1', 'optionalInputValue' )
-    %   myObject = aware( requiredInput, 'optionalInput2', 50 )
+    %   myselfect = aware( requiredProp )
+    %   myselfect = aware( requiredProp, 'optionalInput1', 'optionalInputValue' )
+    %   myselfect = aware( requiredInput, 'optionalInput2', 50 )
     %
     % Description:
-    %   myObject = aware( requiredProp ) further description about the use
+    %   myselfect = aware( requiredProp ) further description about the use
     %       of the function can be added here.
     %
     % PROPERTIES:
@@ -41,9 +41,13 @@ classdef aware < handle
     %% Methods
     methods
         % AWARE Constructor
-        function obj = aware(varargin)
+        function self = aware(varargin)
             
-            obj.data_interface = data_interface();
+            self.data_interface = data_interface();
+        end
+        
+        function out = get_plots(self)
+            out = self.data_interface.views;
         end
     end
 

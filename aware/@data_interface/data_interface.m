@@ -44,82 +44,108 @@ classdef data_interface < handle
     %% Properties
     properties
         selectedPanel = 0
-        listValues = {'Select Data'}
+        listValues = {'Load Data'}
         selectedX = 1
         selectedY = 1
         Window
         FileMenu
+        uiMenu
         ViewPanelVert
         NewVertViewButton
         ViewPanel
         NewHorzViewButton
         viewArea
         dataButton
+        dataSourceMenu
         xMenu
         yMenu
-        ViewAxes
-        dataSource
-        Tag = 'data_interface'
+        views
+        view_handles
+        dataSources
+
+    end
+    
+    properties (Access = private)
+        currentDataSource
+        
+        % styling
+        backgroundColor
+        headerColor
+        buttonColor
+        buttonTextColor
     end
     
     %% Methods
     methods
         % DATA_INTERFACE Constructor
-        function gui = data_interface( )
-
+        function self = data_interface( )
+            import tools.*
+            
             % Open a window and add some menus
-            gui.Window = figure( ...
+            self.Window = figure( ...
                 'Name', 'aware', ...
                 'NumberTitle', 'off', ...
                 'MenuBar', 'none', ...
                 'Toolbar', 'none', ...
-                'HandleVisibility', 'off' );
+                'HandleVisibility', 'off', ...
+                'CloseRequestFcn', @(h,args)data_interface.onExit(h,args,self) );
+            
+            self.backgroundColor = rgbd(252, 252, 252);
+            self.headerColor = rgbd(91,192,222);
+            self.buttonColor = rgbd(231,231,231);
+            self.buttonTextColor = rgbd(255,255,255);
+            self.views = containers.Map();
+            self.view_handles = containers.Map();
+            self.dataSources = containers.Map();
             
             % Set default panel color
-            uiextras.set( gui.Window, 'DefaultBoxPanelTitleColor', [0.7 1.0 0.7] );
+            uiextras.set( self.Window, 'DefaultBoxPanelTitleColor', self.headerColor );
+            uiextras.set( self.Window, 'DefaultBoxPanelForegroundColor', self.buttonTextColor );
+            uiextras.set( self.Window, 'DefaultBoxPanelFontWeight', 'bold' );
+            uiextras.set( self.Window, 'DefaultBoxPanelBackgroundColor', self.backgroundColor);
+            uiextras.set( self.Window, 'DefaultHBoxFlexBackgroundColor', self.backgroundColor);
+            uiextras.set( self.Window, 'DefaultVBoxFlexBackgroundColor', self.backgroundColor);
+            uiextras.set( self.Window, 'DefaultVBoxBackgroundColor', self.backgroundColor);
             
             %% Setup Menus
             % Setup File menu
-            gui.FileMenu = uimenu( gui.Window, 'Label', 'File' );
-            uimenu( gui.FileMenu, 'Label', 'Exit', 'Callback', @data_interface.onExit );
+            self.FileMenu = uimenu( self.Window, 'Label', 'File' );
+            uimenu( self.FileMenu, 'Label', 'Exit', 'Callback', @(h,args)data_interface.onExit(h,args,self) );
             
             % Setup Help menu
-            helpMenu = uimenu( gui.Window, 'Label', 'Help' );
+            helpMenu = uimenu( self.Window, 'Label', 'Help' );
             uimenu( helpMenu, 'Label', 'Documentation', 'Callback', @data_interface.onHelp );
             
             %% Setup the main interface as a horizontal layout
-            mainLayout = uiextras.HBoxFlex( 'Parent', gui.Window, 'Spacing', 3 );
+            mainLayout = uiextras.HBoxFlex( 'Parent', self.Window, 'Spacing', 3 );
             
             %% Create the main panels
             % Control Panels
             controlPanel1 = uiextras.BoxPanel( ...
                 'Parent', mainLayout, ...
-                'Title', 'Select a demo:' );
+                'Title', 'Configure Data Source' );
             
             % Plots are contained in a verticle layout panel
-            gui.ViewPanelVert = uiextras.VBoxFlex( 'Parent', mainLayout, ...
+            self.ViewPanelVert = uiextras.VBoxFlex( 'Parent', mainLayout, ...
                 'Padding', 3, 'Spacing', 3 );
             
             % There is one button at the top to add more rows
-            gui.NewVertViewButton = uicontrol('Parent', gui.ViewPanelVert, ...
-                'String', '+', 'Callback', @(h,vars)data_interface.addRow(h,vars,gui));
+            self.NewVertViewButton = uicontrol('Parent', self.ViewPanelVert, ...
+                'String', '+', 'BackgroundColor', self.buttonColor, ...
+                'Callback', @(h,vars)data_interface.addRow(h,vars,self));
             
             % Each row is a HBox
-            gui.ViewPanel = uiextras.HBoxFlex( 'Parent', gui.ViewPanelVert );
+            self.ViewPanel = uiextras.HBoxFlex( 'Parent', self.ViewPanelVert );
             
             % Each row has a button to add more views
-            gui.NewHorzViewButton = uicontrol('Parent', gui.ViewPanel, ...
-                'String', '+', 'Callback', @(h,vars)data_interface.addPlot(h,vars,gui));
-            
-            % Each plot requires a box panel to sit in
-            gui.viewArea = uiextras.BoxPanel( ...
-                'Parent', gui.ViewPanel, ...
-                'Title', 'Viewing: ???', ...
-                'HelpFcn', @data_interface.onDemoHelp );
+            self.NewHorzViewButton = uicontrol('Parent', self.ViewPanel, ...
+                'String', '+', 'BackgroundColor', self.buttonColor, ...
+                'Callback', @(h,vars)data_interface.addPlot(h,vars,self));
+            init_view = self.setup_view(self.ViewPanel.double);
             
             % Set Button and initial View sizes
-            set( gui.ViewPanel, 'Sizes', [15 -1]  );
-            set( gui.ViewPanelVert, 'Sizes', [15, -1]  );
+            set( self.ViewPanel, 'Sizes', [15 -1]  );
+            set( self.ViewPanelVert, 'Sizes', [15, -1]  );
             
             %% Adjust the main layout
             set( mainLayout, 'Sizes', [-1 -3]  );
@@ -127,34 +153,49 @@ classdef data_interface < handle
             %% Create the data source configuration components
             controlLayout1 = uiextras.VBox( 'Parent', controlPanel1, ...
                 'Padding', 3, 'Spacing', 3 );
-            gui.dataButton = uicontrol( 'Style', 'PushButton', ...
+            self.dataButton = uicontrol( 'Style', 'PushButton', ...
                 'Parent', controlLayout1, ...
-                'String', 'Data Source', ...
-                'Callback', @(h,vars)data_interface.getData(h,vars,gui) );
-            gui.xMenu = uicontrol('Style', 'popup',...
-                'Parent', controlLayout1, ...
-                'String', gui.listValues,...
-                'Callback', @(h,vars)data_interface.updatePlot(h,vars,gui));
-            gui.yMenu = uicontrol('Style', 'popup',...
-                'Parent', controlLayout1, ...
-                'String', gui.listValues,...
-                'Callback', @(h,vars)data_interface.updatePlot(h,vars,gui));
+                'String', 'Data Source', 'BackgroundColor', self.buttonColor, ...
+                'Callback', @(h,vars)data_interface.getData(h,vars,self) );
+            dataBox = uiextras.HBox( 'Parent', controlLayout1, ...
+                'Padding', 1, 'Spacing', 1 );
+            self.dataSourceMenu = uicontrol( 'Style', 'popup', ...
+                'Parent', dataBox, ...
+                'String', self.listValues, 'BackgroundColor', self.buttonColor, ...
+                'Callback', @(h,vars)data_interface.updateDataSource(h,vars,self) );
+            xBox = uiextras.HBox( 'Parent', controlLayout1, ...
+                'Padding', 1, 'Spacing', 1 );
+            self.xMenu = uicontrol('Style', 'popup',...
+                'Parent', xBox, ...
+                'String', self.listValues, 'BackgroundColor', self.buttonColor, ...
+                'Callback', @(h,vars)data_interface.updatePlot(h,vars,self));
+            yBox = uiextras.HBox( 'Parent', controlLayout1, ...
+                'Padding', 1, 'Spacing', 1 );
+            self.yMenu = uicontrol('Style', 'popup',...
+                'Parent', yBox, ...
+                'String', self.listValues,...
+                'BackgroundColor', self.buttonColor, ...
+                'Callback', @(h,vars)data_interface.updatePlot(h,vars,self));
             
             % Set the layout wieghts
             % Negative numbers vary with resize with a weight, constant numbers don't
-            set( controlLayout1, 'Sizes', [28 20 20] ); % List1 and help button
+            set( controlLayout1, 'Sizes', [28 20 20 20] ); % List1 and help button
             
-            %% Create the initial plot view
-            gui.ViewAxes = gui.setup_axes(gui.viewArea);
-            gui.selectedPanel = get(gui.ViewAxes, 'Parent');
+            self.selectedPanel = init_view.viewBoxHandle; % Set init view as selected
         end
         
-        function ax = setup_axes(obj, panel)
-            %SETUP_AXES - Creates a standard axis for the given panel
+        function dv = setup_view(self, parent)
+            %SETUP_AXES - creates default axis to inject into new view
+            id = length(self.views) + 1;
+            dv = data_view(id, parent, self);
+            self.add_view(dv);
+        end
+        
+        function add_view(self, view)
+            %ADD_VIEW - adds the view to Map
             
-            ax = axes( 'Parent', panel, ...
-                'ButtonDownFcn', @(h,vars)data_interface.button_handler(h,vars,obj));
-            line('XData',[],'YData',[],'Parent',ax);
+            self.views(num2str(view.viewBoxHandle)) = view;
+            
         end
 
     end
@@ -162,17 +203,30 @@ classdef data_interface < handle
     %% Static Methods
     methods (Static)
         %% Callback Functions
+        
         function getData( ~, ~, gui )
             %GETDATA - Allows user to select a data source for plotting
             
-            [dataSources, dsNames] = uigetvariables('Data Source', 'InputTypes', 'table');
+            [dataSource, dsName] = uigetvariables('Data Source', 'InputTypes', 'table');
             %TODO: implement plot to data source mapping
             
-            if ~isempty(dataSources)
-                gui.dataSource = dataSources{1,1}; %TODO: handle multiple data sources?
-                gui.listValues = gui.dataSource.Properties.VariableNames;
-                set(gui.xMenu, 'String', gui.listValues);
-                set(gui.yMenu, 'String', gui.listValues);
+            if ~isempty(dataSource)
+                gui.dataSources(dsName{1,1}) = dataSource{1,1};
+                gui.currentDataSource = dsName{1,1};
+                set(gui.dataSourceMenu, 'String', gui.dataSources.keys);
+                gui.updateDataSource([],[],gui);
+            end
+        end
+        
+        function updateDataSource(~, ~, gui)
+            tempData = gui.dataSources(gui.currentDataSource);
+            gui.listValues = tempData.Properties.VariableNames;
+            set(gui.xMenu, 'String', gui.listValues);
+            set(gui.yMenu, 'String', gui.listValues);
+            
+            for i = 1:length(gui.selectedPanel)
+                thisView = gui.views(num2str(gui.selectedPanel(i)));
+                thisView.update_data_source(gui.currentDataSource);
             end
         end
         
@@ -190,16 +244,20 @@ classdef data_interface < handle
                 childs = get(pan, 'Children');
                 lin = get(childs, 'Children');
                 
-                xVals = gui.dataSource{:, gui.selectedX};
-                yVals = gui.dataSource{:, gui.selectedY};
+                tempData = gui.dataSources(gui.currentDataSource);
+                xVals = tempData{:, gui.selectedX};
+                yVals = tempData{:, gui.selectedY};
                 if isnumeric(xVals) && isnumeric(yVals)
-                    set(lin, 'XData', gui.dataSource{:, gui.selectedX}, ...
-                        'YData', gui.dataSource{:, gui.selectedY}, ...
+                    set(lin, 'XData', tempData{:, gui.selectedX}, ...
+                        'YData', tempData{:, gui.selectedY}, ...
                         'LineStyle', 'none', 'Marker', '.');
                 else
                     warndlg('Only numeric values at this time')
                 end
             end
+            
+            % Force updating of data source related properties
+            gui.updateDataSource([],[],gui);
             
         end
         
@@ -208,12 +266,9 @@ classdef data_interface < handle
             
             newHorzViewPanel = uiextras.HBoxFlex( ...
                 'Parent', gui.ViewPanelVert );
-            NewHorzViewButton = uicontrol('Parent', newHorzViewPanel, ...
+            uicontrol('Parent', newHorzViewPanel, 'BackgroundColor', gui.buttonColor, ...
                 'String', '+', 'Callback', @(h,vars)data_interface.addPlot(h,vars,gui));
-            newAxisContainer = uiextras.BoxPanel( ...
-                'Parent', newHorzViewPanel, ...
-                'Title', 'Configure Data Source' );
-            newView = gui.setup_axes(newAxisContainer);
+            gui.setup_view(newHorzViewPanel.double);
             
             set( newHorzViewPanel, 'Sizes', [15 -1]  );
         end
@@ -221,25 +276,20 @@ classdef data_interface < handle
         function addPlot( source, ~, gui )
             %ADDHVIEW - Adds a new graph to the associated rows
             
-            srcObj = get(source);
-            parent = srcObj.Parent;
-            ctrlPanel = uiextras.BoxPanel( ...
-                'Parent', parent, ...
-                'Title', 'Select a demo:');
-            newView = gui.setup_axes(ctrlPanel);
+            parent = get(source, 'Parent');
+            gui.setup_view(parent);
         end
         
         function button_handler(source, ~, gui)
             %BUTTON_HANDLER - Handles mouse clicks on the graphs
             
             % Get the object that was pressed
-            thisObj = get(source);
             parent = get(source, 'Parent'); % parent of current object
             
             % If we have a selection, loop through them and reset
             if gui.selectedPanel ~= 0
                 for i = 1:length(gui.selectedPanel)
-                    set(gui.selectedPanel, 'BorderType', 'etchedin')
+                    set(gui.selectedPanel(i), 'BorderType', 'etchedin');
                 end
             end
             
@@ -261,20 +311,25 @@ classdef data_interface < handle
             
             % Loop through each selected panel and set their style
             for i = 1:length(gui.selectedPanel)
-                set(gui.selectedPanel, 'BorderType', 'beveledin');
+                set(gui.selectedPanel(i), 'BorderType', 'beveledin');
             end
         end
         
+        function onExit(source,~,self)
+            %ONEXIT - Clears the aware object from workspace on exit
+            delete(self);
+            delete(source);
+            try
+                ansVal = evalin('base', 'ans');
+                if isa(ansVal, 'aware')
+                    evalin('base', 'clear(''ans'')');
+                end
+            catch
+                pass;
+            end
 
-    end
+        end
 
-    %% Private Methods
-    methods (Access = private)
-        % Methods that should not be seen by the user
-
-        % Functions stored in a separate 'm' file listed out
-        separateMfileFunction(input1, input2)
-        % Now can be used with data_interface.separateMfileFunction(input1, input2)
     end
 
 end
