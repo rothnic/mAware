@@ -197,6 +197,15 @@ classdef data_interface < handle
             self.views(num2str(view.viewBoxHandle)) = view;
             
         end
+        
+                
+        function data = getDataByName(self, dataName)
+            if ~strcmp(dataName, 'Configure Data Source')
+                data = self.dataSources(dataName);
+            else
+                data = [];
+            end
+        end
 
     end
 
@@ -240,20 +249,10 @@ classdef data_interface < handle
             end
             
             for i = 1:length(gui.selectedPanel)
-                pan = gui.selectedPanel(i);
-                childs = get(pan, 'Children');
-                lin = get(childs, 'Children');
-                
-                tempData = gui.dataSources(gui.currentDataSource);
-                xVals = tempData{:, gui.selectedX};
-                yVals = tempData{:, gui.selectedY};
-                if isnumeric(xVals) && isnumeric(yVals)
-                    set(lin, 'XData', tempData{:, gui.selectedX}, ...
-                        'YData', tempData{:, gui.selectedY}, ...
-                        'LineStyle', 'none', 'Marker', '.');
-                else
-                    warndlg('Only numeric values at this time')
-                end
+                pan = gui.views(num2str(gui.selectedPanel(i)));
+                pan.data_source = gui.currentDataSource;
+                view = gui.views(num2str(gui.selectedPanel(i)));
+                view.update();
             end
             
             % Force updating of data source related properties

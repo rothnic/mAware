@@ -1,4 +1,4 @@
-classdef scatter_view < handle
+classdef scatter_view < data_view
     %SCATTER_VIEW - One line summary of this class goes here
     %   SCATTER_VIEW has a first line of the description of myClass, but
     %   descriptions can include multiple lines of text if needed.
@@ -59,12 +59,10 @@ classdef scatter_view < handle
 
         end
 
-        function doThis(obj)
-        % doThis - Do this thing
-        %   Here is some help text for the doThis method.
-        %
-        %   See also DOTHAT.
-
+        function setup_plot(self)
+            %SETUP_PLOT - Redefines parent plotting method
+            
+            line('XData',[],'YData',[],'Parent',self.axis);
         end
 
         function doThat(obj)

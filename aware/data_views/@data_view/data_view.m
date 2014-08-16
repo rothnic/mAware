@@ -30,6 +30,10 @@ classdef data_view < handle
     
     %% Properties
     properties
+        PLOT_TYPE = 'Generic'
+    end
+    
+    properties
         
         % data source configuration
         data_source = 'Configure Data Source'
@@ -86,6 +90,22 @@ classdef data_view < handle
         
         function setup_plot(self)
             line('XData',[],'YData',[],'Parent',self.axis);
+        end
+        
+        function update(self)
+            %UPDATE - draws plot with current settings without overwriting
+            %the axis.
+            data = self.gui.getDataByName(self.data_source);
+            lin = get(self.axis, 'Children');
+            if ~isempty(data)
+                if (isnumeric(data{:,self.gui.selectedX}) && isnumeric(data{:,self.gui.selectedY}))
+                    set(lin, 'XData', data{:, self.gui.selectedX}, ...
+                        'YData', data{:, self.gui.selectedY}, ...
+                        'LineStyle', 'none', 'Marker', '.');
+                else
+                    warndlg('Only numeric values at this time')
+                end
+            end
         end
         
         function add_axis(self, ax)
