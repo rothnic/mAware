@@ -42,20 +42,8 @@ classdef scatter_view < data_view
     %% Methods
     methods
         % SCATTER_VIEW Constructor
-        function obj = scatter_view(requiredProp, varargin)
-            % Setup input parsing
-            p = inputParser;
-            p.FunctionName = 'scatter_view';
-            p.addRequired('requiredProp');
-            p.addParameter('optionalProp1', 'myDefaultValue', @isstr);
-            p.addParameter('optionalProp2', 100, @isscalar);
-            p.parse(requiredProp, varargin{:});
-            
-            % Add inputs to object properties
-            obj.requiredProp = requiredProp;
-            obj.optionalProp1 = p.Results.optionalProp1;
-            obj.optionalProp2 = p.Results.optionalProp2;
-
+        function self = scatter_view(id, parent, gui)
+            self@data_view(id, parent, gui);
         end
 
         function setup_plot(self)
@@ -64,7 +52,25 @@ classdef scatter_view < data_view
             line('XData',[],'YData',[],'Parent',self.axis);
         end
 
-        function doThat(obj)
+        function update(self)
+            %UPDATE - draws plot with current settings without overwriting
+            %the axis.
+            data = self.gui.getDataByName(self.data_source);
+            the_line = get(self.axis, 'Children');
+            x_col = self.aes_mapping('x');
+            y_col = self.aes_mapping('y');
+            size_col = self.aes_mapping('size');
+            
+            if ~isempty(data)
+                if (isnumeric(data{:,x_col}) && isnumeric(data{:,y_col}))
+                    scatter(self.axis, data{:, x_col}, data{:, y_col}, ...
+                        data{:, size_col});
+                    set(self.axis, 'ButtonDownFcn', ...
+                        @(h,vars)data_view.button_handler(h,vars,self));
+                else
+                    warndlg('Only numeric values at this time')
+                end
+            end
         end
     end
 

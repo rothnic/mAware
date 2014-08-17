@@ -77,17 +77,35 @@ classdef data_view < handle
             
             % Add inputs to object properties
             self.id = p.Results.id;
-            self.parent = p.Results.parent;
+            poss_parent = p.Results.parent;
             self.gui = p.Results.gui;
             
-            self.viewBox = uiextras.BoxPanel( ...
-                'Parent', self.parent, ...
-                'Title', self.getPanelTitle(id,'Configure Data Source'));
-            self.viewBoxHandle = self.viewBox.double;
-            self.axis = axes( 'Parent', self.viewBox, ...
+            % Kill the children of parent
+            %self.clear_parent();
+            
+            % Check for the kind of container
+            rowBox = intersect(gui.ViewPanels.keys, num2str(poss_parent));
+            
+            if ~isempty(rowBox)
+                self.parent = poss_parent;
+                
+                % Build the view box
+                self.viewBox = uiextras.BoxPanel( ...
+                    'Parent', self.parent, ...
+                    'Title', self.getPanelTitle(id,'Configure Data Source'));
+                self.viewBoxHandle = self.viewBox.double;
+            else
+                self.viewBoxHandle = poss_parent;
+                self.parent = get(self.viewBoxHandle, 'Parent');
+            end
+            % Build the axes with click button handler
+            self.axis = axes( 'Parent', self.viewBoxHandle, ...
                 'ButtonDownFcn', @(h,vars)data_view.button_handler(h,vars,self));
-            self.aes_mapping = containers.Map();
+            
+            % Initialize aes mapping to menu number in data interface 
             self.setup_aes_mapping();
+            
+            % Initialize plot
             self.setup_plot()
         end
         
@@ -95,10 +113,19 @@ classdef data_view < handle
             line('XData',[],'YData',[],'Parent',self.axis);
         end
         
+        function clear_parent(self)
+            childs = get(self.parent, 'Children');
+            
+            for i = 1:length(childs)
+                delete(get(self.parent, 'Children'));
+            end
+        end
+        
         function setup_aes_mapping(self)
             %SETUP_AES_MAPPING - initializes aes mapping to initial value
             %so that we have valid mapping from the beginning
             
+            self.aes_mapping = containers.Map();
             aes_vals = self.get_aes(class(self));
             for i = 1:length(aes_vals)
                 self.aes_mapping(aes_vals{i}) = 1;

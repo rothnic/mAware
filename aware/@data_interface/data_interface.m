@@ -41,6 +41,14 @@ classdef data_interface < handle
     %TODO: Add boxplot plot as an option
     %TODO: Fix exit callback
     
+    %% Constants
+    properties (Constant)
+        CONFIG_WIDTH = 200
+        CONFIG_HEIGHT_MIN = 20
+        CONFIG_HEIGHT_MAX = 100
+        CONFIG_MENU_BOX_HEIGHT = 50
+    end
+    
     %% Properties
     properties
         selectedPanel = 0
@@ -49,16 +57,19 @@ classdef data_interface < handle
         selectedY = 1
         Window
         FileMenu
+        DataMenu
         uiMenu
+        ControlPanel
         ViewPanelVert
-        NewVertViewButton
-        ViewPanel
-        NewHorzViewButton
+        ViewPanels
         viewArea
         dataButton
         dataSourceMenu
+        plotTypeMenu
         aes_menus
+        aes_panels
         views
+        view_types
         view_aes
         selected_aes
         dataSources
@@ -82,7 +93,8 @@ classdef data_interface < handle
         function self = data_interface( views )
             import tools.*
             
-            max_aes = self.setup_views(views);
+            self.view_types = views;
+            max_aes = self.setup_views(self.view_types);
             
             % Open a window and add some menus
             self.Window = figure( ...
@@ -99,6 +111,7 @@ classdef data_interface < handle
             self.buttonTextColor = rgbd(255,255,255);
             self.views = containers.Map();
             self.dataSources = containers.Map();
+            self.ViewPanels = containers.Map();
             
             % Set default panel color
             uiextras.set( self.Window, 'DefaultBoxPanelTitleColor', self.headerColor );
@@ -113,6 +126,8 @@ classdef data_interface < handle
             % Setup File menu
             self.FileMenu = uimenu( self.Window, 'Label', 'File' );
             uimenu( self.FileMenu, 'Label', 'Exit', 'Callback', @(h,args)data_interface.onExit(h,args,self) );
+            self.DataMenu = uimenu( self.Window, 'Label', 'Load Data' );
+            uimenu( self.DataMenu, 'Label', 'Table', 'Callback', @(h,vars)data_interface.getData(h,vars,self) );
             
             % Setup Help menu
             helpMenu = uimenu( self.Window, 'Label', 'Help' );
@@ -123,62 +138,82 @@ classdef data_interface < handle
             
             %% Create the main panels
             % Control Panels
-            controlPanel1 = uiextras.BoxPanel( ...
+            controlPanel = uiextras.BoxPanel( ...
                 'Parent', mainLayout, ...
                 'Title', 'Configure Data Source' );
-            
+
             % Plots are contained in a verticle layout panel
             self.ViewPanelVert = uiextras.VBoxFlex( 'Parent', mainLayout, ...
                 'Padding', 3, 'Spacing', 3 );
             
             % There is one button at the top to add more rows
-            self.NewVertViewButton = uicontrol('Parent', self.ViewPanelVert, ...
-                'String', '+', 'BackgroundColor', self.buttonColor, ...
+            uicontrol('Parent', self.ViewPanelVert, 'String', '+', ...
+                'BackgroundColor', self.buttonColor, ...
                 'Callback', @(h,vars)data_interface.addRow(h,vars,self));
             
             % Each row is a HBox
-            self.ViewPanel = uiextras.HBoxFlex( 'Parent', self.ViewPanelVert );
+            viewPanel = uiextras.HBoxFlex( 'Parent', self.ViewPanelVert );
+            self.ViewPanels(num2str(viewPanel.double)) = viewPanel;
             
             % Each row has a button to add more views
-            self.NewHorzViewButton = uicontrol('Parent', self.ViewPanel, ...
-                'String', '+', 'BackgroundColor', self.buttonColor, ...
+            uicontrol('Parent', viewPanel, 'String', '+', ...
+                'BackgroundColor', self.buttonColor, ...
                 'Callback', @(h,vars)data_interface.addPlot(h,vars,self));
-            init_view = self.setup_view(self.ViewPanel.double);
+            init_view = self.setup_view(viewPanel.double, 'data_view');
             
             % Set Button and initial View sizes
-            set( self.ViewPanel, 'Sizes', [15 -1]  );
+            set( viewPanel, 'Sizes', [15 -1]  );
             set( self.ViewPanelVert, 'Sizes', [15, -1]  );
             
             %% Adjust the main layout
             set( mainLayout, 'Sizes', [-1 -3]  );
             
             %% Create the data source configuration components
-            configLayout = uiextras.VBox( 'Parent', controlPanel1, ...
+            self.ControlPanel = uiextras.VBox( 'Parent', controlPanel, ...
                 'Padding', 3, 'Spacing', 3 );
-            self.dataButton = uicontrol( 'Style', 'PushButton', ...
-                'Parent', configLayout, ...
-                'String', 'Data Source', 'BackgroundColor', self.buttonColor, ...
-                'Callback', @(h,vars)data_interface.getData(h,vars,self) );
-            dataBox = uiextras.HBox( 'Parent', configLayout, ...
+            dataBox = uiextras.VBox( 'Parent', self.ControlPanel, ...
                 'Padding', 1, 'Spacing', 1 );
+            self.plotTypeMenu = uicontrol( 'Style', 'popup', ...
+                'Parent', dataBox, ...
+                'String', self.view_types, 'BackgroundColor', self.buttonColor, ...
+                'Callback', @(h,vars)data_interface.update_plot_type(h,vars,self) );
             self.dataSourceMenu = uicontrol( 'Style', 'popup', ...
                 'Parent', dataBox, ...
                 'String', self.listValues, 'BackgroundColor', self.buttonColor, ...
                 'Callback', @(h,vars)data_interface.updateDataSource(h,vars,self) );
             
             % Create as many config menus as necessary
-            self.setup_menus(max_aes, configLayout);
+            self.setup_menus(max_aes, self.ControlPanel);
             self.map_menus();
-            
+            self.update_menus(init_view);
             self.selectedPanel = init_view.viewBoxHandle; % Set init view as selected
         end
         
-        function dv = setup_view(self, parent)
-            %SETUP_AXES - creates default axis to inject into new view
+        %% Class Methods
+        function dv = setup_view(self, parent, viewType)
+            %SETUP_AXES - creates configured axis to inject into new view
             
             id = length(self.views) + 1;
-            dv = data_view(id, parent, self);
-            self.add_view(dv);
+            panelIdx = (self.selectedPanel == parent);
+            
+            if sum(panelIdx) > 0
+                panels = self.selectedPanel(panelIdx);
+                for i = 1:length(panels)
+                    this_panel = panels(i);
+                    this_view = self.views(num2str(this_panel));
+                    id = this_view.id;
+                    dv = generate_view(self, id, this_panel, viewType);
+                end
+            else
+                dv = generate_view(self, id, parent, viewType);
+            end
+            
+            function dv = generate_view(self, id, parent, viewType)
+                view_str = strcat(viewType, '(id, parent, self);');
+                %dv = data_view(id, parent, self);
+                dv = eval(view_str);
+                self.add_view(dv);
+            end
         end
         
         function add_view(self, view)
@@ -186,13 +221,12 @@ classdef data_interface < handle
             
             self.views(num2str(view.viewBoxHandle)) = view;
         end
-        
                 
         function data = getDataByName(self, dataName)
             %GETDATABYNAME - returns the data table related to the name of
             %the data table loaded from the workspace.
             
-            if ~strcmp(dataName, 'Configure Data Source')
+            if ~isempty(dataName) && ~strcmp(dataName, 'Configure Data Source')
                 data = self.dataSources(dataName);
             else
                 data = [];
@@ -221,17 +255,19 @@ classdef data_interface < handle
             %SETUP_MENUS - Creates menus for each view aesthetic
             
             for i = 1:max_aes
-                tempBox = uiextras.HBox( 'Parent', parent, ...
-                    'Padding', 1, 'Spacing', 1 );
-                self.aes_menus(i) = uicontrol('Style', 'popup',...
-                    'Parent', tempBox, ...
+                self.aes_panels{i} = uiextras.BoxPanel( 'Title', 'AES 1', 'Parent', parent );
+                self.aes_menus(i) = uicontrol('Style', 'listbox',...
+                    'Parent', self.aes_panels{i}, ...
                     'String', self.listValues, 'BackgroundColor', self.buttonColor, ...
                     'Callback', @(h,vars)data_interface.updatePlot(h,vars,self));
+                set( self.aes_panels{i}, 'MinimizeFcn', {@data_interface.nMinimize, i, self} );
+                self.aes_panels{i}.IsMinimized = 0;
             end
             
             % Set the layout wieghts
             % Negative numbers vary with resize with a weight, constant numbers don't
-            set( parent, 'Sizes', [28 repmat(20, 1, max_aes + 1)] ); % List1 and help button
+            set( parent, 'Sizes', ...
+                [self.CONFIG_MENU_BOX_HEIGHT repmat(self.CONFIG_HEIGHT_MAX, 1, max_aes)] );
         end
         
         function map_menus(self)
@@ -266,11 +302,13 @@ classdef data_interface < handle
             view_name = class(view);
             [~, aes_vals] = self.get_view_info(view_name);
             
+            % Loop through and set visibility on the menus
             for i = 1:length(self.aes_menus)
                 if length(aes_vals) >= i
-                    set(self.aes_menus(i), 'Visible', 'on');
+                    set(self.aes_panels{i}, 'Title', aes_vals{i});
+                    set(self.aes_panels{i}, 'Visible', 'on');
                 else
-                    set(self.aes_menus(i), 'Visible', 'off');
+                    set(self.aes_panels{i}, 'Visible', 'off');
                 end
             end
         end
@@ -280,6 +318,33 @@ classdef data_interface < handle
     %% Static Methods
     methods (Static)
         %% Callback Functions
+        
+        function update_plot_type(source, ~, gui)
+            %UPDATE_PLOT_TYPE - handles updating the plot based on the
+            %configured plot type settings.
+            
+            view_type = gui.view_types{get(source, 'Value')};
+            
+            for i = 1:length(gui.selectedPanel)
+                gui.setup_view(gui.selectedPanel(i), view_type);
+            end
+            gui.update_menus(gui.views(num2str(gui.selectedPanel(i))));
+        end
+        
+        function nMinimize( ~, ~, whichpanel, gui )
+            %NMINIMIZE - handles collapse of the panels when clicked on
+            
+            % A panel has been maximized/minimized
+            s = get( gui.ControlPanel, 'Sizes' );
+            panel_num = whichpanel + 1;
+            gui.aes_panels{whichpanel}.IsMinimized = ~gui.aes_panels{whichpanel}.IsMinimized;
+            if gui.aes_panels{whichpanel}.IsMinimized
+                s(panel_num) = gui.CONFIG_HEIGHT_MIN;
+            else
+                s(panel_num) = gui.CONFIG_HEIGHT_MAX;
+            end
+            set( gui.ControlPanel, 'Sizes', s );
+        end
         
         function [view_type, req_aes] = get_view_info(view_name)
             %GET_VIEW_INFO - returns information based on the plot type
@@ -307,18 +372,24 @@ classdef data_interface < handle
         end
         
         function updateDataSource(~, ~, gui)
-            tempData = gui.dataSources(gui.currentDataSource);
-            gui.listValues = tempData.Properties.VariableNames;
+            %UPDATEDATASOURCE - updates menus and data source information
+            %based on the configured data source, if there is a data source
+            %configured
             
-            % Update aesthetic menus
-            for i = 1:length(gui.aes_menus)
-                set(gui.aes_menus(i), 'String', gui.listValues);
-            end
-            
-            % Update view information
-            for i = 1:length(gui.selectedPanel)
-                thisView = gui.views(num2str(gui.selectedPanel(i)));
-                thisView.data_source = gui.currentDataSource;
+            if ~isempty(gui.currentDataSource)
+                tempData = gui.dataSources(gui.currentDataSource);
+                gui.listValues = tempData.Properties.VariableNames;
+                
+                % Update aesthetic menus
+                for i = 1:length(gui.aes_menus)
+                    set(gui.aes_menus(i), 'String', gui.listValues);
+                end
+                
+                % Update view information
+                for i = 1:length(gui.selectedPanel)
+                    thisView = gui.views(num2str(gui.selectedPanel(i)));
+                    thisView.data_source = gui.currentDataSource;
+                end
             end
         end
         
@@ -346,20 +417,21 @@ classdef data_interface < handle
         function addRow( ~, ~, gui )
             %ADDVERTVIEW - Adds a new row to the graph grid
             
-            newHorzViewPanel = uiextras.HBoxFlex( ...
+            viewPanel = uiextras.HBoxFlex( ...
                 'Parent', gui.ViewPanelVert );
-            uicontrol('Parent', newHorzViewPanel, 'BackgroundColor', gui.buttonColor, ...
+            uicontrol('Parent', viewPanel, 'BackgroundColor', gui.buttonColor, ...
                 'String', '+', 'Callback', @(h,vars)data_interface.addPlot(h,vars,gui));
-            gui.setup_view(newHorzViewPanel.double);
+            gui.ViewPanels(num2str(viewPanel.double)) = viewPanel;
+            gui.setup_view(viewPanel.double, 'data_view');
             
-            set( newHorzViewPanel, 'Sizes', [15 -1]  );
+            set( viewPanel, 'Sizes', [15 -1]  );
         end
         
         function addPlot( source, ~, gui )
             %ADDHVIEW - Adds a new graph to the associated rows
             
             parent = get(source, 'Parent');
-            gui.setup_view(parent);
+            gui.setup_view(parent, 'data_view');
         end
         
         function button_handler(source, ~, gui)
@@ -422,6 +494,7 @@ classdef data_interface < handle
         
         function onExit(source,~,self)
             %ONEXIT - Clears the aware object from workspace on exit
+            
             delete(self);
             delete(source);
             try
