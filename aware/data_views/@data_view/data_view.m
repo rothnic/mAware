@@ -28,16 +28,17 @@ classdef data_view < handle
     % Date:         11-Aug-2014
     % Update:
     
-    %% Properties
-    properties
-        PLOT_TYPE = 'Generic'
+    %% Configuration Properties
+    properties (Constant = true)
+        DEFAULT_TYPE = 'Default'
+        DEFAULT_AES = {'x','y'}
     end
     
     properties
         
         % data source configuration
-        data_source = 'Configure Data Source'
         filters
+        data_source = 'Configure Data Source'
         
         % the box containing the plot
         gui
@@ -54,11 +55,12 @@ classdef data_view < handle
         legend
         
         % state
+        aes_mapping
         selected = false
     end
     
     properties (Dependent)
-        boxTitle    
+        boxTitle
     end
     
     %% Methods
@@ -84,7 +86,8 @@ classdef data_view < handle
             self.viewBoxHandle = self.viewBox.double;
             self.axis = axes( 'Parent', self.viewBox, ...
                 'ButtonDownFcn', @(h,vars)data_view.button_handler(h,vars,self));
-            
+            self.aes_mapping = containers.Map();
+            self.setup_aes_mapping();
             self.setup_plot()
         end
         
@@ -92,15 +95,28 @@ classdef data_view < handle
             line('XData',[],'YData',[],'Parent',self.axis);
         end
         
+        function setup_aes_mapping(self)
+            %SETUP_AES_MAPPING - initializes aes mapping to initial value
+            %so that we have valid mapping from the beginning
+            
+            aes_vals = self.get_aes(class(self));
+            for i = 1:length(aes_vals)
+                self.aes_mapping(aes_vals{i}) = 1;
+            end
+        end
+        
+        
         function update(self)
             %UPDATE - draws plot with current settings without overwriting
             %the axis.
             data = self.gui.getDataByName(self.data_source);
-            lin = get(self.axis, 'Children');
+            the_line = get(self.axis, 'Children');
+            x_col = self.aes_mapping('x');
+            y_col = self.aes_mapping('y');
             if ~isempty(data)
-                if (isnumeric(data{:,self.gui.selectedX}) && isnumeric(data{:,self.gui.selectedY}))
-                    set(lin, 'XData', data{:, self.gui.selectedX}, ...
-                        'YData', data{:, self.gui.selectedY}, ...
+                if (isnumeric(data{:,x_col}) && isnumeric(data{:,y_col}))
+                    set(the_line, 'XData', data{:, x_col}, ...
+                        'YData', data{:, y_col}, ...
                         'LineStyle', 'none', 'Marker', '.');
                 else
                     warndlg('Only numeric values at this time')
@@ -117,9 +133,11 @@ classdef data_view < handle
         end
         
         function set.data_source(self, sourceName)
+            %SET.DATA_SOURCE - setter for data source to update box title
+            %as well
+            
             self.data_source = sourceName;
             self.boxTitle = sourceName;
-            
         end
         
         function set.boxTitle(self, data_source)
@@ -127,11 +145,6 @@ classdef data_view < handle
             
             tempTitle = strcat('(',num2str(self.id),')-[',data_source,']');
             self.viewBox.Title = tempTitle;
-        end
-        
-        function update_data_source(self, data_source)
-            self.data_source = data_source;
-            self.boxTitle = self.data_source;
         end
         
     end
@@ -145,6 +158,28 @@ classdef data_view < handle
         
         function button_handler(source,vars,self)
             data_interface.button_handler(source,vars,self.gui);
+        end
+        
+        function aes_out = get_aes(classString)
+            %GET_AES - return aes based on class
+            
+            if strcmp(classString, 'data_view')
+                aes_out = data_view.DEFAULT_AES;
+            else
+                req_cmd = strcat(classString, '.REQUIRED_AES');
+                aes_out = eval(req_cmd);
+            end
+        end
+        
+        function type_out = get_plot_type(classString)
+            %GET_AES - return type constant based on class
+            
+            if strcmp(classString, 'data_view')
+                type_out = data_view.DEFAULT_TYPE;
+            else
+                req_cmd = strcat(classString, '.PLOT_TYPE');
+                type_out = eval(req_cmd);
+            end
         end
         
     end

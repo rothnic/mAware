@@ -57,11 +57,12 @@ classdef data_interface < handle
         viewArea
         dataButton
         dataSourceMenu
-        xMenu
-        yMenu
+        aes_menus
         views
-        view_handles
+        view_aes
+        selected_aes
         dataSources
+        menu_mapping
 
     end
     
@@ -78,8 +79,10 @@ classdef data_interface < handle
     %% Methods
     methods
         % DATA_INTERFACE Constructor
-        function self = data_interface( )
+        function self = data_interface( views )
             import tools.*
+            
+            max_aes = self.setup_views(views);
             
             % Open a window and add some menus
             self.Window = figure( ...
@@ -95,7 +98,6 @@ classdef data_interface < handle
             self.buttonColor = rgbd(231,231,231);
             self.buttonTextColor = rgbd(255,255,255);
             self.views = containers.Map();
-            self.view_handles = containers.Map();
             self.dataSources = containers.Map();
             
             % Set default panel color
@@ -151,41 +153,29 @@ classdef data_interface < handle
             set( mainLayout, 'Sizes', [-1 -3]  );
             
             %% Create the data source configuration components
-            controlLayout1 = uiextras.VBox( 'Parent', controlPanel1, ...
+            configLayout = uiextras.VBox( 'Parent', controlPanel1, ...
                 'Padding', 3, 'Spacing', 3 );
             self.dataButton = uicontrol( 'Style', 'PushButton', ...
-                'Parent', controlLayout1, ...
+                'Parent', configLayout, ...
                 'String', 'Data Source', 'BackgroundColor', self.buttonColor, ...
                 'Callback', @(h,vars)data_interface.getData(h,vars,self) );
-            dataBox = uiextras.HBox( 'Parent', controlLayout1, ...
+            dataBox = uiextras.HBox( 'Parent', configLayout, ...
                 'Padding', 1, 'Spacing', 1 );
             self.dataSourceMenu = uicontrol( 'Style', 'popup', ...
                 'Parent', dataBox, ...
                 'String', self.listValues, 'BackgroundColor', self.buttonColor, ...
                 'Callback', @(h,vars)data_interface.updateDataSource(h,vars,self) );
-            xBox = uiextras.HBox( 'Parent', controlLayout1, ...
-                'Padding', 1, 'Spacing', 1 );
-            self.xMenu = uicontrol('Style', 'popup',...
-                'Parent', xBox, ...
-                'String', self.listValues, 'BackgroundColor', self.buttonColor, ...
-                'Callback', @(h,vars)data_interface.updatePlot(h,vars,self));
-            yBox = uiextras.HBox( 'Parent', controlLayout1, ...
-                'Padding', 1, 'Spacing', 1 );
-            self.yMenu = uicontrol('Style', 'popup',...
-                'Parent', yBox, ...
-                'String', self.listValues,...
-                'BackgroundColor', self.buttonColor, ...
-                'Callback', @(h,vars)data_interface.updatePlot(h,vars,self));
             
-            % Set the layout wieghts
-            % Negative numbers vary with resize with a weight, constant numbers don't
-            set( controlLayout1, 'Sizes', [28 20 20 20] ); % List1 and help button
+            % Create as many config menus as necessary
+            self.setup_menus(max_aes, configLayout);
+            self.map_menus();
             
             self.selectedPanel = init_view.viewBoxHandle; % Set init view as selected
         end
         
         function dv = setup_view(self, parent)
             %SETUP_AXES - creates default axis to inject into new view
+            
             id = length(self.views) + 1;
             dv = data_view(id, parent, self);
             self.add_view(dv);
@@ -195,15 +185,93 @@ classdef data_interface < handle
             %ADD_VIEW - adds the view to Map
             
             self.views(num2str(view.viewBoxHandle)) = view;
-            
         end
         
                 
         function data = getDataByName(self, dataName)
+            %GETDATABYNAME - returns the data table related to the name of
+            %the data table loaded from the workspace.
+            
             if ~strcmp(dataName, 'Configure Data Source')
                 data = self.dataSources(dataName);
             else
                 data = [];
+            end
+        end
+        
+        function max_aes = setup_views(self, views)
+            %SETUP_VIEWS - collects setup information from native and
+            %plugin views.
+            
+            self.view_aes = containers.Map();
+            max_aes = 0;
+            
+            for i = 1:length(views)
+                view_name = views{i};
+                [~, req_aes] = self.get_view_info(view_name);
+                if length(req_aes) > max_aes
+                    max_aes = length(req_aes);
+                end
+                self.view_aes(view_name) = req_aes;
+            end
+        end
+        
+        
+        function setup_menus(self, max_aes, parent)
+            %SETUP_MENUS - Creates menus for each view aesthetic
+            
+            for i = 1:max_aes
+                tempBox = uiextras.HBox( 'Parent', parent, ...
+                    'Padding', 1, 'Spacing', 1 );
+                self.aes_menus(i) = uicontrol('Style', 'popup',...
+                    'Parent', tempBox, ...
+                    'String', self.listValues, 'BackgroundColor', self.buttonColor, ...
+                    'Callback', @(h,vars)data_interface.updatePlot(h,vars,self));
+            end
+            
+            % Set the layout wieghts
+            % Negative numbers vary with resize with a weight, constant numbers don't
+            set( parent, 'Sizes', [28 repmat(20, 1, max_aes + 1)] ); % List1 and help button
+        end
+        
+        function map_menus(self)
+            %MAP_MENUS - Creates a mapping between each created menu and a
+            %mapping between each loaded plot type and its associated
+            %aesthetic for the specific menu type. This is a map of maps,
+            %so we can easily update the column number when the menu
+            %changes to the selected plot type.
+            
+            self.menu_mapping = containers.Map();
+            
+            plot_types = self.view_aes.keys;
+            
+            for i = 1:length(self.aes_menus)
+                thisMap = containers.Map();
+                for j = 1:length(plot_types)
+                    this_aes = self.view_aes(plot_types{j});
+                    if length(this_aes) >= i
+                        % Create mapping between menu handle and view+aes
+                        thisMap(plot_types{j}) = this_aes{i};
+                    end
+                end
+                self.menu_mapping(num2str(self.aes_menus(i))) = thisMap;
+            end
+            
+        end
+        
+        function update_menus(self, view)
+            %UPDATE_MENUS - sets configuration panel/menu settings based on
+            %the selected plot type
+            
+            view_name = class(view);
+            [~, aes_vals] = self.get_view_info(view_name);
+            
+            for i = 1:length(self.aes_menus)
+                if length(aes_vals) >= i
+                    set(self.aes_menus(i), 'Visible', 'on');
+                else
+                    set(self.aes_menus(i), 'Visible', 'off');
+                end
             end
         end
 
@@ -213,11 +281,22 @@ classdef data_interface < handle
     methods (Static)
         %% Callback Functions
         
+        function [view_type, req_aes] = get_view_info(view_name)
+            %GET_VIEW_INFO - returns information based on the plot type
+            
+            % aes
+            view_str = strcat(view_name, '.', 'get_aes(''', view_name, ''')');
+            req_aes = eval(view_str); 
+            
+            % plot type
+            type_str = strcat(view_name, '.', 'get_plot_type(''', view_name, ''')');
+            view_type = eval(type_str);
+        end
+        
         function getData( ~, ~, gui )
             %GETDATA - Allows user to select a data source for plotting
             
             [dataSource, dsName] = uigetvariables('Data Source', 'InputTypes', 'table');
-            %TODO: implement plot to data source mapping
             
             if ~isempty(dataSource)
                 gui.dataSources(dsName{1,1}) = dataSource{1,1};
@@ -230,28 +309,32 @@ classdef data_interface < handle
         function updateDataSource(~, ~, gui)
             tempData = gui.dataSources(gui.currentDataSource);
             gui.listValues = tempData.Properties.VariableNames;
-            set(gui.xMenu, 'String', gui.listValues);
-            set(gui.yMenu, 'String', gui.listValues);
             
+            % Update aesthetic menus
+            for i = 1:length(gui.aes_menus)
+                set(gui.aes_menus(i), 'String', gui.listValues);
+            end
+            
+            % Update view information
             for i = 1:length(gui.selectedPanel)
                 thisView = gui.views(num2str(gui.selectedPanel(i)));
-                thisView.update_data_source(gui.currentDataSource);
+                thisView.data_source = gui.currentDataSource;
             end
         end
         
         function updatePlot( source, ~, gui )
             %UPDATEPLOT - Updates the plot when configuration changes
             
-            if source == gui.xMenu
-                gui.selectedX = get(source,'Value');
-            else
-                gui.selectedY = get(source, 'Value');
-            end
-            
             for i = 1:length(gui.selectedPanel)
                 pan = gui.views(num2str(gui.selectedPanel(i)));
                 pan.data_source = gui.currentDataSource;
                 view = gui.views(num2str(gui.selectedPanel(i)));
+                view_type = class(view);
+                
+                % Get this menu map
+                menu_map = gui.menu_mapping(num2str(source));
+                this_aes = menu_map(view_type);
+                view.aes_mapping(this_aes) = get(source, 'Value');
                 view.update();
             end
             
@@ -284,6 +367,7 @@ classdef data_interface < handle
             
             % Get the object that was pressed
             parent = get(source, 'Parent'); % parent of current object
+            view = gui.views(num2str(parent));
             
             % If we have a selection, loop through them and reset
             if gui.selectedPanel ~= 0
@@ -302,8 +386,28 @@ classdef data_interface < handle
                 case 'extend'
                     pass;
                 case 'alt'
-                    len = length(gui.selectedPanel);
-                    gui.selectedPanel(len+1) = parent;
+                    view_name = class(view);
+                    [this_view_type, ~] = gui.get_view_info(view_name);
+                    
+                    % make sure we are selecting the same plot types
+                    type_diff = 0;
+                    for i = 1:length(gui.selectedPanel)
+                        sel_view = gui.views(num2str(gui.selectedPanel(i)));
+                        view_name = class(sel_view);
+                        [sel_view_type, ~] = gui.get_view_info(view_name);
+                        if ~strcmp(this_view_type, sel_view_type)
+                            type_diff = 1;
+                        end
+                    end
+                    
+                    % if there is no type difference append selection
+                    if ~type_diff
+                        len = length(gui.selectedPanel);
+                        gui.selectedPanel(len+1) = parent;
+                    else
+                        gui.selectedPanel = parent;
+                    end
+
                 case 'open'
                     pass;
             end
@@ -312,6 +416,8 @@ classdef data_interface < handle
             for i = 1:length(gui.selectedPanel)
                 set(gui.selectedPanel(i), 'BorderType', 'beveledin');
             end
+            
+            gui.update_menus(view);
         end
         
         function onExit(source,~,self)

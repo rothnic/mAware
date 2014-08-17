@@ -34,10 +34,9 @@ classdef scatter_view < data_view
     % Update:
     
     %% Properties
-    properties
-        requiredProp                % Required property of scatter_view
-        optionalProp1
-        optionalProp2
+    properties (Constant)
+        PLOT_TYPE = 'Scatter';
+        REQUIRED_AES = {'x','y','size'}
     end
     
     %% Methods

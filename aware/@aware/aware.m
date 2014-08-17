@@ -34,8 +34,9 @@ classdef aware < handle
     % Update:
     
     %% Properties
-    properties
-        data_interface                % Required property of aware
+    properties (Access = private)
+        data_if                % Required property of aware
+        root_path
     end
     
     %% Methods
@@ -43,7 +44,19 @@ classdef aware < handle
         % AWARE Constructor
         function self = aware(varargin)
             
-            self.data_interface = data_interface();
+            % Load native views
+            self.root_path = self.get_aware_path();
+            native_path = fullfile(self.root_path, 'aware', 'data_views');
+            native_views = what(native_path);
+            
+            % Load plugin views
+            plugin_path = fullfile(self.root_path, 'plugins');
+            plugins = what(plugin_path);
+            
+            % Start data interface with views
+            views = vertcat(cellstr(native_views.classes), ...
+                cellstr(plugins.classes));
+            self.data_if = data_interface(views);
         end
         
         function out = get_plots(self)
@@ -54,6 +67,12 @@ classdef aware < handle
     %% Static Methods
     methods (Static)
         % Methods unrelated to a single object
+        function aware_path = get_aware_path()
+             aware_path = which('aware');
+            [aware_path,~,~]=fileparts(aware_path);
+            [aware_path,~,~]=fileparts(aware_path);
+            [aware_path,~,~]=fileparts(aware_path);
+        end
     end
 
     %% Private Methods
