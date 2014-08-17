@@ -53,8 +53,6 @@ classdef data_interface < handle
     properties
         selectedPanel = 0
         listValues = {'Load Data'}
-        selectedX = 1
-        selectedY = 1
         Window
         FileMenu
         DataMenu
@@ -79,6 +77,7 @@ classdef data_interface < handle
     
     properties (Access = private)
         currentDataSource
+        currentPlotType
         
         % styling
         backgroundColor
@@ -140,7 +139,7 @@ classdef data_interface < handle
             % Control Panels
             controlPanel = uiextras.BoxPanel( ...
                 'Parent', mainLayout, ...
-                'Title', 'Configure Data Source' );
+                'Title', 'View Configuration' );
 
             % Plots are contained in a verticle layout panel
             self.ViewPanelVert = uiextras.VBoxFlex( 'Parent', mainLayout, ...
@@ -210,9 +209,20 @@ classdef data_interface < handle
             
             function dv = generate_view(self, id, parent, viewType)
                 view_str = strcat(viewType, '(id, parent, self);');
-                %dv = data_view(id, parent, self);
                 dv = eval(view_str);
+                dv.data_source = self.currentDataSource;
+                dv.update();
                 self.add_view(dv);
+            end
+        end
+        
+        function update_views(self)
+            %UPDATE_VIEWS - loop through all selected views with the
+            %changes to the view configuration
+            
+            for i = 1:length(self.selectedPanel)
+                this_view = self.views(num2str(self.selectedPanel(i)));
+                this_view.update();
             end
         end
         
@@ -307,6 +317,11 @@ classdef data_interface < handle
                 if length(aes_vals) >= i
                     set(self.aes_panels{i}, 'Title', aes_vals{i});
                     set(self.aes_panels{i}, 'Visible', 'on');
+                    menu_handle = get(self.aes_panels{i}, 'Children');
+                    
+                    % Set the menu selection to the current aes mapping for
+                    % the view object
+                    set(menu_handle, 'Value', view.aes_mapping(aes_vals{i}));
                 else
                     set(self.aes_panels{i}, 'Visible', 'off');
                 end
@@ -314,7 +329,29 @@ classdef data_interface < handle
         end
 
     end
-
+    
+    %% Getters/Setters
+    methods
+        function out = get.currentDataSource(self)
+            %GET.CURRENTDATASOURCE - returns data source string based on
+            %the index of the data source menu
+            
+            if ~isempty(get(self.dataSourceMenu, 'Value'))
+                keys = self.dataSources.keys;
+                out = keys{get(self.dataSourceMenu, 'Value')};
+            else
+                out = 'Configure Data Source';
+            end
+        end
+        
+        function out = get.currentPlotType(self)
+            %GET.CURRENTDATASOURCE - returns data source string based on
+            %the index of the data source menu
+            
+            out = self.view_types{get(self.plotTypeMenu, 'Value')};
+        end
+    end
+    
     %% Static Methods
     methods (Static)
         %% Callback Functions
@@ -365,9 +402,9 @@ classdef data_interface < handle
             
             if ~isempty(dataSource)
                 gui.dataSources(dsName{1,1}) = dataSource{1,1};
-                gui.currentDataSource = dsName{1,1};
                 set(gui.dataSourceMenu, 'String', gui.dataSources.keys);
                 gui.updateDataSource([],[],gui);
+                gui.update_views();
             end
         end
         
@@ -422,7 +459,7 @@ classdef data_interface < handle
             uicontrol('Parent', viewPanel, 'BackgroundColor', gui.buttonColor, ...
                 'String', '+', 'Callback', @(h,vars)data_interface.addPlot(h,vars,gui));
             gui.ViewPanels(num2str(viewPanel.double)) = viewPanel;
-            gui.setup_view(viewPanel.double, 'data_view');
+            gui.setup_view(viewPanel.double, gui.currentPlotType);
             
             set( viewPanel, 'Sizes', [15 -1]  );
         end
@@ -431,7 +468,7 @@ classdef data_interface < handle
             %ADDHVIEW - Adds a new graph to the associated rows
             
             parent = get(source, 'Parent');
-            gui.setup_view(parent, 'data_view');
+            gui.setup_view(parent, gui.currentPlotType);
         end
         
         function button_handler(source, ~, gui)

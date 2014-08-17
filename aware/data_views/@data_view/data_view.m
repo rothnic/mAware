@@ -137,6 +137,7 @@ classdef data_view < handle
             %UPDATE - draws plot with current settings without overwriting
             %the axis.
             data = self.gui.getDataByName(self.data_source);
+            self.boxTitle = self.data_source;
             the_line = get(self.axis, 'Children');
             x_col = self.aes_mapping('x');
             y_col = self.aes_mapping('y');
