@@ -56,36 +56,25 @@ classdef scatter_view < data_view
             %UPDATE - draws plot with current settings without overwriting
             %the axis.
             data = self.gui.getDataByName(self.data_source);
-            the_line = get(self.axis, 'Children');
-            x_col = self.aes_mapping('x');
-            y_col = self.aes_mapping('y');
-            size_col = self.aes_mapping('size');
-            
+
+            cols.x_col = self.aes_mapping('x');
+            cols.y_col = self.aes_mapping('y');
+            cols.size_col = self.aes_mapping('size');
+            col_fields = fieldnames(cols);
             if ~isempty(data)
-                if (isnumeric(data{:,x_col}) && isnumeric(data{:,y_col}))
-                    scatter(self.axis, data{:, x_col}, data{:, y_col}, ...
-                        data{:, size_col});
-                    set(self.axis, 'ButtonDownFcn', ...
-                        @(h,vars)data_view.button_handler(h,vars,self));
-                else
-                    warndlg('Only numeric values at this time')
-                end
+                %utils.table.separate_items(data, {}
+                
+                scatter(self.axis, data{:, cols.x_col}, data{:, cols.y_col}, ...
+                    data{:, cols.size_col});
+                self.update_axis(data, 'x');
+                self.update_axis(data, 'y');
+                
+                set(self.axis, 'ButtonDownFcn', ...
+                    @(h,vars)data_view.button_handler(h,vars,self));
+                
             end
         end
-    end
-
-    %% Static Methods
-    methods (Static)
-        % Methods unrelated to a single object
-    end
-
-    %% Private Methods
-    methods (Access = private)
-        % Methods that should not be seen by the user
-
-        % Functions stored in a separate 'm' file listed out
-        separateMfileFunction(input1, input2)
-        % Now can be used with scatter_view.separateMfileFunction(input1, input2)
+        
     end
 
 end

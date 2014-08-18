@@ -336,10 +336,10 @@ classdef data_interface < handle
             %GET.CURRENTDATASOURCE - returns data source string based on
             %the index of the data source menu
             
-            if ~isempty(get(self.dataSourceMenu, 'Value'))
+            try
                 keys = self.dataSources.keys;
                 out = keys{get(self.dataSourceMenu, 'Value')};
-            else
+            catch
                 out = 'Configure Data Source';
             end
         end
@@ -401,7 +401,8 @@ classdef data_interface < handle
             [dataSource, dsName] = uigetvariables('Data Source', 'InputTypes', 'table');
             
             if ~isempty(dataSource)
-                gui.dataSources(dsName{1,1}) = dataSource{1,1};
+                dataSource = utils.table.to_categorical(dataSource{1,1});
+                gui.dataSources(dsName{1,1}) = dataSource;
                 set(gui.dataSourceMenu, 'String', gui.dataSources.keys);
                 gui.updateDataSource([],[],gui);
                 gui.update_views();

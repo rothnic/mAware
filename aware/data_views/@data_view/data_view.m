@@ -149,7 +149,39 @@ classdef data_view < handle
                 else
                     warndlg('Only numeric values at this time')
                 end
+                
+                update_axis(self, data, 'x');
+                update_axis(self, data, 'y');
             end
+        end
+        
+        function update_axis(self, data, col)
+            col_num = self.aes_mapping(col);
+            col_name = self.gui.listValues{col_num};
+            col_data = data{:, col_num};
+            lim_str = strcat(upper(col), 'Lim');
+            if utils.is_categorical(data{:, col_num})
+                
+                % get axis info based on categorical data
+                [ limits, ticks, labels ] = scales.utils.cats_to_axis(col_data);
+                
+                % generate property strings for x,y,z
+                tick_str = strcat(upper(col), 'Tick');
+                lab_str = strcat(upper(col), 'TickLabel');
+                
+                % set axis values
+                set(self.axis, tick_str, ticks);
+                set(self.axis, lab_str, labels);
+                
+            else
+                [ ~, limits ] = scales.utils.calc_axis_breaks_and_limits(...
+                    min(col_data), max(col_data), 'nlabs', length(col_data)); 
+            end
+            
+            set(self.axis, lim_str, limits);
+            % all column types should set labels
+            label_fun = str2func(strcat(lower(col), 'label'));
+            label_fun(self.axis, col_name);
         end
         
         function add_axis(self, ax)
