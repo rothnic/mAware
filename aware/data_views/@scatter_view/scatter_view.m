@@ -53,7 +53,11 @@ classdef scatter_view < data_view
         function update(self, varargin)
             %UPDATE - draws plot with current settings without overwriting
             %the axis.
+            import components.colors.*;
+            import utils.*;
             
+            % Use inputParser to get the correct axis to plot to. If gui
+            % passes ext_axis, then we plot to a new axis instead
             p = inputParser;
             p.FunctionName = 'data_view.update';
             p.addOptional('ext_axis', self.axis);
@@ -68,18 +72,30 @@ classdef scatter_view < data_view
             % current data source that map to the current aesthetic
             cols.x_col = self.aes_mapping('x');
             cols.y_col = self.aes_mapping('y');
+            cols.color_col = self.aes_mapping('color');
             cols.size_col = self.aes_mapping('size');
 
             % We just call a regular plotting function at this point that
             % can take columns of data for each input
             if ~isempty(data)
+                
+                % Helper function to assign colors based on unique values
+                % within the column associated with color
+                [colors_index, the_colors, ~] = assign_colors(data,...
+                    cols.color_col);
+                colormap(axis_handle, the_colors);
+                
+                % Helper function to scale size based on values
+                size_data = scale_data(data{:, cols.size_col}, 20, 50);
+                
+                % The actual plotting function
                 scatter(axis_handle, data{:, cols.x_col}, data{:, cols.y_col}, ...
-                    data{:, cols.size_col});
+                    size_data, colors_index, 'fill');
                 
                 % These calls update the x and y axis labels/ticks on each
                 % update, while ensuring the callbacks aren't overwritten
-                self.update_axis(data, 'x');
-                self.update_axis(data, 'y');
+                self.update_axis(data, 'x', axis_handle);
+                self.update_axis(data, 'y', axis_handle);
             end
         end
         

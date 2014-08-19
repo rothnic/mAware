@@ -351,6 +351,12 @@ classdef data_interface < handle
             
             out = self.view_types{get(self.plotTypeMenu, 'Value')};
         end
+        
+        function out = get_views(self)
+            %GET_VIEWS - returns the selected views from the views Map
+            
+            out = self.views(num2str(self.selectedPanel));    
+        end
     end
     
     %% Static Methods
@@ -548,6 +554,8 @@ classdef data_interface < handle
         end
         
         function plot_in_fig(source, ~, self)
+            %PLOT_IN_FIG - plots each selected panel into a new figure
+            
             for i = 1:length(self.selectedPanel)
                 view = self.views(num2str(self.selectedPanel(i)));
                 fig = figure();
@@ -560,6 +568,8 @@ classdef data_interface < handle
         end
         
         function onHelp(~, ~)
+            %ONHELP - will provide help of some kind
+            
             warndlg('NO HELP AVAILABLE, GO AWAY!');
         end
 

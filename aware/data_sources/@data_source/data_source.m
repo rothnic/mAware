@@ -47,26 +47,6 @@ classdef data_source < handle
             obj.name = p.Results.name;
         end
 
-        function add_view(obj)
-        % add_view - adds a view on a subset of the data
-        %
-        %   See also DOTHAT.
-
-        end
-
-        function doThat(obj)
-        end
-    end
-
-    %% Static Methods
-    methods (Static)
-        % Methods unrelated to a single object
-    end
-
-    %% Private Methods
-    methods (Access = private)
-        % Methods that should not be seen by the user
-
     end
 
 end
