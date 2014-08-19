@@ -1,3 +1,6 @@
 [submodule "external/uigetvariables"]
 	path = external/uigetvariables
 	url = https://github.com/rothnic/uigetvariables
+[submodule "external/ggplot"]
+	path = external/ggplot
+	url = https://github.com/rothnic/ggplot
