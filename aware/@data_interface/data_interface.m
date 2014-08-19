@@ -125,6 +125,7 @@ classdef data_interface < handle
             % Setup File menu
             self.FileMenu = uimenu( self.Window, 'Label', 'File' );
             uimenu( self.FileMenu, 'Label', 'Exit', 'Callback', @(h,args)data_interface.onExit(h,args,self) );
+            uimenu( self.FileMenu, 'Label', 'Plot in New Figure', 'Callback', @(h,args)data_interface.plot_in_fig(h,args,self) );
             self.DataMenu = uimenu( self.Window, 'Label', 'Load Data' );
             uimenu( self.DataMenu, 'Label', 'Table', 'Callback', @(h,vars)data_interface.getData(h,vars,self) );
             
@@ -544,6 +545,22 @@ classdef data_interface < handle
                 pass;
             end
 
+        end
+        
+        function plot_in_fig(source, ~, self)
+            for i = 1:length(self.selectedPanel)
+                view = self.views(num2str(self.selectedPanel(i)));
+                fig = figure();
+                axis();
+                ax = get(fig, 'CurrentAxes');
+                view.setup_plot(ax);
+                view.update(ax);
+                view.setup_external(ax);
+            end
+        end
+        
+        function onHelp(~, ~)
+            warndlg('NO HELP AVAILABLE, GO AWAY!');
         end
 
     end

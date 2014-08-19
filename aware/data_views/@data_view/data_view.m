@@ -109,8 +109,14 @@ classdef data_view < handle
             self.setup_plot()
         end
         
-        function setup_plot(self)
-            line('XData',[],'YData',[],'Parent',self.axis);
+        function setup_plot(self, varargin)
+            p = inputParser;
+            p.FunctionName = 'data_view.setup_plot';
+            p.addOptional('ext_axis', self.axis);
+            p.parse(varargin{:});
+            axis_handle = p.Results.ext_axis;
+            
+            line('XData',[],'YData',[],'Parent', axis_handle);
         end
         
         function clear_parent(self)
@@ -133,14 +139,23 @@ classdef data_view < handle
         end
         
         
-        function update(self)
+        function update(self, varargin)
             %UPDATE - draws plot with current settings without overwriting
             %the axis.
+            
+            p = inputParser;
+            p.FunctionName = 'data_view.update';
+            p.addOptional('ext_axis', self.axis);
+            p.parse(varargin{:});
+            temp_axis = p.Results.ext_axis;
+            
             data = self.gui.getDataByName(self.data_source);
             self.boxTitle = self.data_source;
-            the_line = get(self.axis, 'Children');
+            
+            the_line = get(temp_axis, 'Children');
             x_col = self.aes_mapping('x');
             y_col = self.aes_mapping('y');
+            
             if ~isempty(data)
                 if (isnumeric(data{:,x_col}) && isnumeric(data{:,y_col}))
                     set(the_line, 'XData', data{:, x_col}, ...
@@ -155,33 +170,63 @@ classdef data_view < handle
             end
         end
         
-        function update_axis(self, data, col)
-            col_num = self.aes_mapping(col);
+        function setup_external(self, fig, axis)
+            
+        end
+        
+        function update_axis(self, data, axis_name, varargin)
+            %UPDATE_AXIS - sets up the ticks, labels, and button handler on
+            %each update of the view. This method uses some helper
+            %functions that could be reused if you must redefine this
+            %method for some reason.
+            %
+            % PARAMETERS
+            %   data - the matlab table data structure
+            %   axis_name - the string
+            %   axis_handle (Optional) - other axis
+            
+            p = inputParser();
+            p.FunctionName = 'data_view.update';
+            p.addRequired('data');
+            p.addRequired('axis_name');
+            p.addOptional('axis_handle', self.axis);
+            p.parse(data, axis_name, varargin{:});
+            axis_handle = p.Results.axis_handle;
+            
+            col_num = self.aes_mapping(axis_name);
             col_name = self.gui.listValues{col_num};
             col_data = data{:, col_num};
-            lim_str = strcat(upper(col), 'Lim');
+            lim_str = strcat(upper(axis_name), 'Lim');
+            
+            % check for categorical data
             if utils.is_categorical(data{:, col_num})
                 
                 % get axis info based on categorical data
                 [ limits, ticks, labels ] = scales.utils.cats_to_axis(col_data);
                 
                 % generate property strings for x,y,z
-                tick_str = strcat(upper(col), 'Tick');
-                lab_str = strcat(upper(col), 'TickLabel');
+                tick_str = strcat(upper(axis_name), 'Tick');
+                lab_str = strcat(upper(axis_name), 'TickLabel');
                 
                 % set axis values
-                set(self.axis, tick_str, ticks);
-                set(self.axis, lab_str, labels);
+                set(axis_handle, tick_str, ticks);
+                set(axis_handle, lab_str, labels);
                 
-            else
+            else % we have numerical data
                 [ ~, limits ] = scales.utils.calc_axis_breaks_and_limits(...
                     min(col_data), max(col_data), 'nlabs', length(col_data)); 
             end
             
-            set(self.axis, lim_str, limits);
+            set(axis_handle, lim_str, limits);
+            
             % all column types should set labels
-            label_fun = str2func(strcat(lower(col), 'label'));
-            label_fun(self.axis, col_name);
+            label_fun = str2func(strcat(lower(axis_name), 'label'));
+            label_fun(axis_handle, col_name);
+            
+            % don't set button handler on external axis, always use
+            % self.axis
+            set(self.axis, 'ButtonDownFcn', ...
+                @(h,vars)data_view.button_handler(h,vars,self));
         end
         
         function add_axis(self, ax)
@@ -203,7 +248,7 @@ classdef data_view < handle
         function set.boxTitle(self, data_source)
             %GET.BOXTITLE - getter method for view title
             
-            tempTitle = strcat('(',num2str(self.id),')-[',data_source,']');
+            tempTitle = strcat('ID:',num2str(self.id),'-Data:',data_source,'-Axis:', num2str(self.axis));
             self.viewBox.Title = tempTitle;
         end
         
