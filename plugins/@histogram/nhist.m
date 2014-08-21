@@ -210,9 +210,13 @@
 % Jonathan Lansey 2010-2013,                                              %
 %                   questions to Lansey at gmail.com                      %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [theText,rawN, x] = nhist(cellValues, varargin)
+function [theText,rawN, x] = nhist(ax_in, cellValues, varargin)
 %% INITIALIZE PARAMETERS
 % Default initialization of the parameters,
+persistent ax;
+ax = ax_in;
+cla(ax, 'reset');
+set(ax, 'NextPlot', 'add');
 
 stdTimes=4; % the number of times the standard deviation to set the upper end of the axis to be.
 binFactor=1.5;
@@ -859,30 +863,30 @@ if newfigFlag % determine figure height
     end
     if normalHist && num2Plot>2
 %         figure('Name', Title,'Position',[4     300     335    figHeight%         ]);
-        figure('Position',[4    4     435    figHeight   ]);
+        %figure('Position',[4    4     435    figHeight   ]);
     else % no reason to stretch it out so much, use default size
-        figure;
+        %figure;
     end
 %     figure('Name', Title);
-    Hx = axes('Box', 'off', 'FontSize', AxisFontSize);
-    title(makeTitle(Title));
+    set(ax, 'Box', 'off', 'FontSize', AxisFontSize);
+    title(ax, makeTitle(Title));
 else % all we need to do is make sure that the old figures holdstate is okay.
     %save the initial hold state of the figure.
-    hold_state = ishold;
-    if ~hold_state
+    %hold_state = ishold;
+    %if ~hold_state
         if normalHist && num2Plot>1
 %           you need to clear the whole figure to use sub-plot
             clf;
         else
-            cla; %just in case we have some subploting going on you don't want to ruin that
-            axis normal;
-            legend('off'); % in case there was a legend up.
+            %cla; %just in case we have some subploting going on you don't want to ruin that
+            axis(ax, 'normal');
+            %legend('off'); % in case there was a legend up.
 %             is there anything else we need to turn off? do it here.
         end
-    end
+    %end
 end
 
-hold on;
+%hold on;
 %% PREPARE THE COLORS
 if normalHist %
    if multicolorFlag
@@ -917,11 +921,12 @@ if normalHist % There will be no legend for the normalHist, therefore this loop 
 % But we might as well run it to set the fontsize here:
     for k=1:num2Plot
         if num2Plot>1
+            subplot(ax);
             subplot(num2Plot,1,k);
         end
         hold on;
-        plot([0 1],[-1 -1],'color',lineStyleOrder{k},'linewidth',linewidth);
-        set(gca,'fontsize',AxisFontSize);
+        plot(ax, [0 1],[-1 -1],'color',lineStyleOrder{k},'linewidth',linewidth);
+        set(ax,'fontsize',AxisFontSize);
     end
 else % do the same thing, but on different subplots
     for k=1:num2Plot
@@ -929,13 +934,14 @@ else % do the same thing, but on different subplots
 %     places with no data have a reserved color spot on a legend.
 %     plot lines below the x axis, they will never show up but will set the
 %     legend appropriately.
-        plot([0 1],[-1 -1],'color',lineStyleOrder{k},'linewidth',linewidth);
+        plot(ax, [0 1],[-1 -1],'color',lineStyleOrder{k},'linewidth',linewidth);
     end
-    set(gca,'fontsize',AxisFontSize);
+    set(ax,'fontsize',AxisFontSize);
 end
 if normalHist % plot on separate sub-plots
     for k=1:num2Plot
         if num2Plot>1
+            subplot(ax);
             subplot(num2Plot,1,k);
         end
         hold on;
@@ -944,18 +950,18 @@ if normalHist % plot on separate sub-plots
 %           but with more functionality (there must be some matlab bug which
 %           doesn't allow changing the lineColor property of a histc bar graph.)
             if vertLinesFlag % then plot the bars with edges
-                bar(x{k}+binWidth(k)/2,n{k}/1,'FaceColor',faceStyleOrder{k},'barwidth',1,'EdgeColor','k','linewidth',1.5)
+                bar(ax, x{k}+binWidth(k)/2,n{k}/1,'FaceColor',faceStyleOrder{k},'barwidth',1,'EdgeColor','k','linewidth',1.5)
             else % plot the bars without edges
-                bar(x{k}+binWidth(k)/2,n{k}/1,'FaceColor',faceStyleOrder{k},'barwidth',1,'EdgeColor','none')
+                bar(ax, x{k}+binWidth(k)/2,n{k}/1,'FaceColor',faceStyleOrder{k},'barwidth',1,'EdgeColor','none')
             end
             
             if ~smoothFlag
-                stairs(x{k},n{k},'k','linewidth',linewidth);
-                plot([x{k}(1) x{k}(1)],[0 n{k}(1)],'color','k','linewidth',linewidth);
+                stairs(ax, x{k},n{k},'k','linewidth',linewidth);
+                plot(ax, [x{k}(1) x{k}(1)],[0 n{k}(1)],'color','k','linewidth',linewidth);
             else % plot it smooth, skip the very edges.
 %                 plot(x{k}(1:end-1)+binWidth(k)/2,n{k}(1:end-1),'k','linewidth',linewidth);
                 xi = linspace(SXRange(1),SXRange(2),500); yi = pchip(x{k}(1:end-1)+binWidth(k)/2,n{k}(1:end-1),xi);
-                plot(xi,yi,'k','linewidth',linewidth);
+                plot(ax, xi,yi,'k','linewidth',linewidth);
             end
             
             
@@ -965,13 +971,14 @@ else % plot them all on one graph with the stairs function
     for k=1:num2Plot
         if isData(k)
             if ~smoothFlag
-                stairs(x{k},n{k},'color',lineStyleOrder{k},'linewidth',linewidth);
-                plot([x{k}(1) x{k}(1)],[0 n{k}(1)],'color',lineStyleOrder{k},'linewidth',linewidth);
+                stairs(ax, x{k},n{k},'color',lineStyleOrder{k},'linewidth',linewidth);
+                line([x{k}(1) x{k}(1)],[0 n{k}(1)],'color',lineStyleOrder{k},...
+                    'linewidth',linewidth, 'Parent', ax);
             else % plot it smooth
                 xi = linspace(SXRange(1),SXRange(2),500); yi = pchip(x{k}(1:end-1)+binWidth(k)/2,n{k}(1:end-1),xi);
-                plot(xi,yi,'color',lineStyleOrder{k},'linewidth',linewidth);
+                plot(ax, xi,yi,'color',lineStyleOrder{k},'linewidth',linewidth);
                 if vertLinesFlag % plot those points, otherwise its a wash.
-                    plot(x{k}(1:end-1)+binWidth(k)/2,n{k}(1:end-1),'.','color',lineStyleOrder{k},'markersize',15);
+                    plot(ax, x{k}(1:end-1)+binWidth(k)/2,n{k}(1:end-1),'.','color',lineStyleOrder{k},'markersize',15);
                 end
             end
         end
@@ -989,6 +996,7 @@ end
 if normalHist
     for k=1:num2Plot
         if num2Plot>1
+            subplot(ax);
             subplot(num2Plot,1,k);
         end
         if isData(k)
@@ -1004,7 +1012,7 @@ else
     for k=1:num2Plot
         if isData(k)
 %             stairs(x{k},n{k},'color',lineStyleOrder{k},'linewidth',linewidth);
-%             plot([x{k}(1) x{k}(1)],[0 n{k}(1)],'color',lineStyleOrder{k},'linewidth',linewidth);
+%             plot(ax, [x{k}(1) x{k}(1)],[0 n{k}(1)],'color',lineStyleOrder{k},'linewidth',linewidth);
 
       %    ADD A STAR IF CROPPED 
             if cropped_right{k} % if some of the data points lie outside the bins.
@@ -1036,6 +1044,7 @@ for k=1:num2Plot
 %       roundedMode{k}=mean(x{k}(n{k}==max(n{k}))); % finds the maximum of the plot
     if normalHist % separate plots with separate y-axis                
         if num2Plot>1
+            subplot(ax);
             subplot(num2Plot,1,k);
         end
         tempMax = max(n{k});
@@ -1088,33 +1097,33 @@ for k=1:num2Plot
     
     if plotStdFlag % it is important to set the ylim property here so errorb plots the appropriate sized error bars
         if normalHist
-            ylim([0 max(n{k})*(1.1+.1)+modeShift{k}]);% add this in case the data is zero
+            ylim(ax, [0 max(n{k})*(1.1+.1)+modeShift{k}]);% add this in case the data is zero
             tempY=tempMax.*1.1+modeShift{k};
         else
-            ylim([0 maxN*(1.1+.1*num2Plot)+modeShift{k}]);
+            ylim(ax, [0 maxN*(1.1+.1*num2Plot)+modeShift{k}]);
             tempY=tempMax*(1+.1*(num2Plot-k+1))+modeShift{k};
         end
         if serrorFlag%==1 % if standard error will be plotted
 %           note: that it is plotting it from the top to the bottom! just like the legend is
-            errorb(meanV{k},tempY,stdV{k}/sqrt(numPoints{k}),'horizontal','color',lineStyleOrder{k},'barwidth',barFactor,'linewidth',linewidth);
+            errorb(ax, meanV{k},tempY,stdV{k}/sqrt(numPoints{k}),'horizontal','color',lineStyleOrder{k},'barwidth',barFactor,'linewidth',linewidth);
         else % just plot the standard deviation as error
-            errorb(meanV{k},tempY,stdV{k},                   'horizontal','color',lineStyleOrder{k},'barwidth',barFactor,'linewidth',linewidth);
+            errorb(ax, meanV{k},tempY,stdV{k},                   'horizontal','color',lineStyleOrder{k},'barwidth',barFactor,'linewidth',linewidth);
         end
         
         if normalHist % plot only the dot in color
-            plot(meanV{k},tempY,'.','markersize',25,'color',faceStyleOrder{k});
-            plot(meanV{k},tempY,'o','markersize',8,'color',[0 0 0],'linewidth',linewidth);
+            plot(ax, meanV{k},tempY,'.','markersize',25,'color',faceStyleOrder{k});
+            plot(ax, meanV{k},tempY,'o','markersize',8,'color',[0 0 0],'linewidth',linewidth);
         else % plot everything in color, this dot and the bars before it
-            plot(meanV{k},tempY,'.','markersize',25,'color',lineStyleOrder{k});
+            plot(ax, meanV{k},tempY,'.','markersize',25,'color',lineStyleOrder{k});
         end
     end
 %   Plot the boxplot!
     if boxplotFlag % it is important to set the ylim property here so errorb plots the appropriate sized error bars
         if normalHist
-            ylim([0 max(n{k})*(1.3+.3)+modeShift{k}]);% add this in case the data is zero
+            ylim(ax, [0 max(n{k})*(1.3+.3)+modeShift{k}]);% add this in case the data is zero
             tempY=tempMax.*1.3+modeShift{k}; % note: 1.3 instead of 1.2 because the boxplot needs a little more room.
         else
-            ylim([0 maxN*(1.3+.3*num2Plot)+modeShift{k}]);
+            ylim(ax, [0 maxN*(1.3+.3*num2Plot)+modeShift{k}]);
             tempY=tempMax*(1+.3*(num2Plot-k+1))+modeShift{k};
         end
         
@@ -1168,43 +1177,44 @@ end
 if normalHist
     for k=1:num2Plot        
         if num2Plot>1
-            subplot(num2Plot,1,k);
+            subplot(ax);
+            subplot(ax, num2Plot,1,k);
         end
 %       add a title to each plot, from the legend
         if legendExists
-            title(makeTitle(cellLegend{k}),'FontWeight','bold');
+            title(ax, makeTitle(cellLegend{k}),'FontWeight','bold');
         end
 %      set axis
-        xlim(axisRange);
+        xlim(ax, axisRange);
         if ~plotStdFlag && ~boxplotFlag
 %             if the plots std flag happened then it would have been
 %             already set
 %             ylim([0 max(n{k})*(1.1+.1)+modeShift{k}]);
 %         else
-            ylim([0 max(n{k})*(1.1)+modeShift{k}]);
+            ylim(ax, [0 max(n{k})*(1.1)+modeShift{k}]);
         end
 %       label y
-        ylabel(SYLabel, 'FontSize', AxisFontSize);
+        ylabel(ax, SYLabel, 'FontSize', AxisFontSize);
     end
 %   label x axis only at the end, the bottom subplot
-    xlabel(SXLabel, 'FontSize', AxisFontSize);
+    xlabel(ax, SXLabel, 'FontSize', AxisFontSize);
     
 else % all in one plot:
 %  set y limits
     if ~plotStdFlag && ~boxplotFlag
 %       ylim([0 maxN*(1.1+.1*num2Plot)+modeShift{k}]);
 %     else
-        ylim([0 maxN*(1.1)+modeShift{k}]);
+        ylim(ax, [0 maxN*(1.1)+modeShift{k}]);
     end
     % set x limits
-    xlim(axisRange);
+    xlim(ax, axisRange);
     % label y and x axis
-    ylabel(SYLabel, 'FontSize', AxisFontSize);
-    xlabel(SXLabel, 'FontSize', AxisFontSize);
+    ylabel(ax, SYLabel, 'FontSize', AxisFontSize);
+    xlabel(ax, SXLabel, 'FontSize', AxisFontSize);
 %   Add legend
     if legendExists
-        legend(makeTitle(cellLegend),'location',legendLocation);%,'location','SouthOutside');
-        legend boxoff;
+        legend(ax, makeTitle(cellLegend),'location',legendLocation);%,'location','SouthOutside');
+        legend(ax, 'boxoff');
     end
 end
 
@@ -1273,9 +1283,9 @@ end
   
 %% return the hold state of the figure to the way it was
 if ~newfigFlag % otherwise hold_state will not be saved
-    if ~hold_state
-        hold off;
-    end
+    %if ~hold_state
+    %    hold off;
+    %end
 end
 end
 
@@ -1339,7 +1349,7 @@ end
 %                           choose the colors from.
 %% Examples
 % y=rand(1,5)+1; e=rand(1,5)/4;
-% hold off; bar(y,'facecolor',[.8 .8 .8]); hold on;
+% hold off; bar(ax, y,'facecolor',[.8 .8 .8]); hold on;
 % errorb(y,e);
 % 
 % defining x and y
@@ -1358,13 +1368,13 @@ end
 % Jonathan Lansey Jan 2009,     questions to Lansey at gmail.com          %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function errorb(x,y,varargin)
+function errorb(ax, x,y,varargin)
 %% first things first
 %save the initial hold state of the figure.
-hold_state = ishold;
-if ~hold_state
-    cla;
-end
+% hold_state = ishold;
+% if ~hold_state
+%     cla;
+% end
 
 
 %% If you are plotting errobars on Matlabs grouped bar plot
@@ -1372,7 +1382,7 @@ if size(x,1)>1 && size(x,2)>1 % if you need to do a group plot
 % Plot bars
     num2Plot=size(x,2);
     e=y; y=x;
-	handles.bars = bar(x, 'edgecolor','k', 'linewidth', 2);
+	handles.bars = bar(ax, x, 'edgecolor','k', 'linewidth', 2);
 	hold on
 	for i = 1:num2Plot
 		x =get(get(handles.bars(i),'children'), 'xdata');
@@ -1506,13 +1516,13 @@ for k=1:num2Plot
         esy=barWidth/2;
 %       the main line
         if ~topFlag || x(k)>=0  %also plot the bottom half.
-            plot([x(k)+ex x(k)],[y(k) y(k)],'color',lineStyleOrder{k},'linewidth',linewidth);
+            plot(ax, [x(k)+ex x(k)],[y(k) y(k)],'color',lineStyleOrder{k},'linewidth',linewidth);
     %       the hat     
-            plot([x(k)+ex x(k)+ex],[y(k)+esy y(k)-esy],'color',lineStyleOrder{k},'linewidth',linewidth);
+            plot(ax, [x(k)+ex x(k)+ex],[y(k)+esy y(k)-esy],'color',lineStyleOrder{k},'linewidth',linewidth);
         end
         if ~topFlag || x(k)<0  %also plot the bottom half.
-            plot([x(k) x(k)-ex],[y(k) y(k)],'color',lineStyleOrder{k},'linewidth',linewidth);
-            plot([x(k)-ex x(k)-ex],[y(k)+esy y(k)-esy],'color',lineStyleOrder{k},'linewidth',linewidth);
+            plot(ax, [x(k) x(k)-ex],[y(k) y(k)],'color',lineStyleOrder{k},'linewidth',linewidth);
+            plot(ax, [x(k)-ex x(k)-ex],[y(k)+esy y(k)-esy],'color',lineStyleOrder{k},'linewidth',linewidth);
             %rest?
         end
     else %plot then vertically
@@ -1520,13 +1530,13 @@ for k=1:num2Plot
         esx=barWidth/2;
 %         the main line
         if ~topFlag || y(k)>=0 %also plot the bottom half.
-            plot([x(k) x(k)],[y(k)+ey y(k)],'color',lineStyleOrder{k},'linewidth',linewidth);
+            plot(ax, [x(k) x(k)],[y(k)+ey y(k)],'color',lineStyleOrder{k},'linewidth',linewidth);
     %       the hat
-            plot([x(k)+esx x(k)-esx],[y(k)+ey y(k)+ey],'color',lineStyleOrder{k},'linewidth',linewidth);
+            plot(ax, [x(k)+esx x(k)-esx],[y(k)+ey y(k)+ey],'color',lineStyleOrder{k},'linewidth',linewidth);
         end
         if ~topFlag || y(k)<0 %also plot the bottom half.
-            plot([x(k) x(k)],[y(k) y(k)-ey],'color',lineStyleOrder{k},'linewidth',linewidth);
-            plot([x(k)+esx x(k)-esx],[y(k)-ey y(k)-ey],'color',lineStyleOrder{k},'linewidth',linewidth);
+            plot(ax, [x(k) x(k)],[y(k) y(k)-ey],'color',lineStyleOrder{k},'linewidth',linewidth);
+            plot(ax, [x(k)+esx x(k)-esx],[y(k)-ey y(k)-ey],'color',lineStyleOrder{k},'linewidth',linewidth);
         end
     end
 end
@@ -1535,15 +1545,15 @@ end
 
 if pointsFlag
     for k=1:num2Plot
-        plot(x(k),y(k),'o','markersize',8,'color',lineStyleOrder{k},'MarkerFaceColor',lineStyleOrder{k});
+        plot(ax, x(k),y(k),'o','markersize',8,'color',lineStyleOrder{k},'MarkerFaceColor',lineStyleOrder{k});
     end
 end
 
-drawnow;
+%drawnow;
 % return the hold state of the figure
-if ~hold_state
-    hold off;
-end
+%if ~hold_state
+%    hold off;
+%end
 
 end
 
@@ -1792,34 +1802,34 @@ end
 %                   questions to Lansey at gmail.com                      %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
 %%
-function forLegend = bplot(x,varargin)
+function forLegend = bplot(ax, x,varargin)
 %% save the initial hold state of the figure.
-hold_state = ishold;
-if ~hold_state
-    clf;
-end
+% hold_state = ishold;
+% if ~hold_state
+%     clf;
+% end
 %%
 if size(x,1)>1 && size(x,2)>1 % great, you want to plot a bunch.
     if isempty(varargin)
-        forLegend = bplot(x(:,1),1);
+        forLegend = bplot(ax, x(:,1),1);
         for ii=2:size(x,2)
             hold on;
-            bplot(x(:,ii),ii,'nolegend');
+            bplot(ax, x(:,ii),ii,'nolegend');
         end
     else
         if ~ischar(varargin{1})
             warning('You can''t specify a location for multiple guys, this will probably crash');
         end
-        forLegend = bplot(x(:,1),1,varargin{:});
+        forLegend = bplot(ax, x(:,1),1,varargin{:});
         for ii=2:size(x,2)
             hold on;
-            bplot(x(:,ii),ii,'nolegend',varargin{:});
+            bplot(ax, x(:,ii),ii,'nolegend',varargin{:});
 
         end
     end
-    if ~hold_state
-        hold off;
-    end
+%     if ~hold_state
+%         hold off;
+%     end
     return;
 end
 
@@ -1963,30 +1973,30 @@ if horizontalFlag
     hReg2(end+1) = rectangle('Position',[boxEdge(1),y-barWidth/2,IQR,barWidth],'linewidth',linewidth,'EdgeColor',boxColor);
 
     hold on;
-    hReg2(end+1) = plot([medianX medianX],[y-barWidth/2 y+barWidth/2],'color',meanColor,'linewidth',linewidth);
+    hReg2(end+1) = plot(ax, [medianX medianX],[y-barWidth/2 y+barWidth/2],'color',meanColor,'linewidth',linewidth);
     if meanFlag
         hReg2(end+1) = plot(meanX,y,'+','color',meanColor,'linewidth',linewidth,'markersize',10);
     end
-    hReg2(end+1) = plot([boxEdge(1) boxEdge(2)],[y-barWidth/2 y-barWidth/2],'linewidth',linewidth,'color',boxColor);
+    hReg2(end+1) = plot(ax, [boxEdge(1) boxEdge(2)],[y-barWidth/2 y-barWidth/2],'linewidth',linewidth,'color',boxColor);
 
-    hReg(end+1) = plot([wisEdge(1) boxEdge(1)],[y y],'--','linewidth',linewidth,'color',wisColor);
-    hReg(end+1) = plot([boxEdge(2) wisEdge(2)],[y y],'--','linewidth',linewidth,'color',wisColor);
-    hReg2(end+1) = plot([wisEdge(1) wisEdge(1)],[y-barWidth/3 y+barWidth/3],'-','linewidth',linewidth,'color',wisColor);
-    hReg(end+1) = plot([wisEdge(2) wisEdge(2)],[y-barWidth/3 y+barWidth/3],'-','linewidth',linewidth,'color',wisColor);
+    hReg(end+1) = plot(ax, [wisEdge(1) boxEdge(1)],[y y],'--','linewidth',linewidth,'color',wisColor);
+    hReg(end+1) = plot(ax, [boxEdge(2) wisEdge(2)],[y y],'--','linewidth',linewidth,'color',wisColor);
+    hReg2(end+1) = plot(ax, [wisEdge(1) wisEdge(1)],[y-barWidth/3 y+barWidth/3],'-','linewidth',linewidth,'color',wisColor);
+    hReg(end+1) = plot(ax, [wisEdge(2) wisEdge(2)],[y-barWidth/3 y+barWidth/3],'-','linewidth',linewidth,'color',wisColor);
 else %
     hReg2(end+1) = rectangle('Position',[y-barWidth/2,boxEdge(1),barWidth,IQR],'linewidth',linewidth,'EdgeColor',boxColor);
     hold on;
     
-    hReg2(end+1) = plot([y-barWidth/2 y+barWidth/2],[medianX medianX],'color',meanColor,'linewidth',linewidth);
+    hReg2(end+1) = plot(ax, [y-barWidth/2 y+barWidth/2],[medianX medianX],'color',meanColor,'linewidth',linewidth);
     if meanFlag
-        hReg2(end+1) = plot(y,meanX,'+','linewidth',linewidth,'color',meanColor,'markersize',10);
+        hReg2(end+1) = plot(ax, y,meanX,'+','linewidth',linewidth,'color',meanColor,'markersize',10);
     end
-    hReg2(end+1) = plot([y-barWidth/2 y-barWidth/2],[boxEdge(1) boxEdge(2)],'linewidth',linewidth,'color',boxColor);
+    hReg2(end+1) = plot(ax, [y-barWidth/2 y-barWidth/2],[boxEdge(1) boxEdge(2)],'linewidth',linewidth,'color',boxColor);
 
-    hReg(end+1) = plot([y y],[wisEdge(1) boxEdge(1)],'--','linewidth',linewidth,'color',wisColor);
-    hReg(end+1) = plot([y y],[boxEdge(2) wisEdge(2)],'--','linewidth',linewidth,'color',wisColor);
-    hReg2(end+1) = plot([y-barWidth/3 y+barWidth/3],[wisEdge(1) wisEdge(1)],'-','linewidth',linewidth,'color',wisColor);
-    hReg(end+1) = plot([y-barWidth/3 y+barWidth/3],[wisEdge(2) wisEdge(2)],'-','linewidth',linewidth,'color',wisColor);
+    hReg(end+1) = plot(ax, [y y],[wisEdge(1) boxEdge(1)],'--','linewidth',linewidth,'color',wisColor);
+    hReg(end+1) = plot(ax, [y y],[boxEdge(2) wisEdge(2)],'--','linewidth',linewidth,'color',wisColor);
+    hReg2(end+1) = plot(ax, [y-barWidth/3 y+barWidth/3],[wisEdge(1) wisEdge(1)],'-','linewidth',linewidth,'color',wisColor);
+    hReg(end+1) = plot(ax, [y-barWidth/3 y+barWidth/3],[wisEdge(2) wisEdge(2)],'-','linewidth',linewidth,'color',wisColor);
 
 end
 
@@ -2041,10 +2051,10 @@ if justOneInputFlag
         padyfac = .1;
     end
     
-    axis tight;
-    p = axis;
+    axis(ax, 'tight');
+    p = ax;
     padx = (p(2)-p(1))*padxfac; pady = (p(4)-p(3))*padyfac;
-    axis(p+[-padx padx -pady pady]);
+    set(ax, 'Position', p+[-padx padx -pady pady]);
 end
 %% Set the legend
 if stdFlag
