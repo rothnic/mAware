@@ -223,6 +223,14 @@ classdef data_view < handle
             label_fun = str2func(strcat(lower(axis_name), 'label'));
             label_fun(axis_handle, col_name);
             
+            % Update click handler
+            self.update_button_handler();
+        end
+        
+        function update_button_handler(self)
+            %UPDATE_BUTTON_HANDLER - required to reset this each time the
+            %axis is updated
+            
             % don't set button handler on external axis, always use
             % self.axis
             set(self.axis, 'ButtonDownFcn', ...

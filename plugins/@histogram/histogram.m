@@ -103,12 +103,18 @@ classdef histogram < data_view
                         self.nhist(axis_handle, hist_data, ...
                             'xlabel', cellstr(xlab));
                     end
+                    
+                    % Call our own axis update method
+                    self.update_axis();
                 end
             end
         end
         
-        function update_axis()
-            %Override and do nothing
+        function update_axis(self)
+            %Override parent function since nhist handles most of the axis
+            %labeling
+            
+            self.update_button_handler();
         end
         
     end
