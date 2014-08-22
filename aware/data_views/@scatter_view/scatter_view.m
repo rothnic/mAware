@@ -59,7 +59,7 @@ classdef scatter_view < data_view
             % Use inputParser to get the correct axis to plot to. If gui
             % passes ext_axis, then we plot to a new axis instead
             p = inputParser;
-            p.FunctionName = 'data_view.update';
+            p.FunctionName = 'scatter_view.update';
             p.addOptional('ext_axis', self.axis);
             p.parse(varargin{:});
             axis_handle = p.Results.ext_axis;

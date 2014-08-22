@@ -1,3 +1,7 @@
+function draw_earth(ax)
+%DRAW_EARTH - draw earth
+
+
 %% Textured 3D Earth example
 %
 % Ryan Gray
@@ -26,30 +30,30 @@ erot    = 7.2921158553e-5; % earth rotation rate (radians/sec)
 
 %% Create figure
 
-figure('Color', space_color);
+%figure('Color', space_color);
 
-hold on;
+%hold on;
 
 % Turn off the normal axes
 
-set(gca, 'NextPlot','add', 'Visible','off');
+set(ax, 'NextPlot','add', 'Visible','off');
 
-axis equal;
-axis auto;
+axis(ax, 'equal');
+axis(ax, 'auto');
 
 % Set initial view
 
-view(0,30);
+view(ax, 0, 30);
 
-axis vis3d;
+axis(ax, 'vis3d');
 
 %% Create wireframe globe
 
 % Create a 3D meshgrid of the sphere points using the ellipsoid function
 
-[x, y, z] = ellipsoid(0, 0, 0, erad, erad, prad, npanels);
+[x, y, z] = ellipsoid(ax, 0, 0, 0, erad, erad, prad, npanels);
 
-globe = surf(x, y, -z, 'FaceColor', 'none', 'EdgeColor', 0.5*[1 1 1]);
+globe = surf(ax, x, y, -z, 'FaceColor', 'none', 'EdgeColor', 0.5*[1 1 1]);
 
 if ~isempty(GMST0)
     hgx = hgtransform;
@@ -68,3 +72,5 @@ cdata = imread(image_file);
 
 set(globe, 'FaceColor', 'texturemap', 'CData', cdata, 'FaceAlpha', alpha, 'EdgeColor', 'none');
 
+
+end
