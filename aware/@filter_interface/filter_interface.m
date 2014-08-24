@@ -441,12 +441,12 @@ classdef filter_interface < handle
             col = cols{col};
         end
         
-        function update_table(self)
+        function update_table(self, varargin)
             
             [rows, cols] = self.filters.apply_filters(self.data);
             
             % Filter rows if we have row filters applied
-            if sum(rows) < length(self.data_orig{:, 1})
+            if sum(rows) < length(self.data_orig{:, 1}) || ~isempty(varargin)
                 set(self.table, 'Data', table2cell(self.data_orig(rows, :)));
             end
 
@@ -627,7 +627,8 @@ classdef filter_interface < handle
                 
             end
             
-            self.update_table();
+            self.update_filters();
+            self.update_table('force');
         end
         
         function reset_filters(~, ~, self)
