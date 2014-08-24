@@ -36,6 +36,7 @@ classdef filter_database < handle
     %% Properties
     properties
         db
+        col_filters = {}
     end
     
     properties (Access = private)
@@ -93,7 +94,7 @@ classdef filter_database < handle
             filters = self.db{strcmp(self.db.(type_col), filter_type), cols};
         end
         
-        function data = apply_filters(self, data)
+        function [idx, cols] = apply_filters(self, data)
             
             if ~isempty(self.db)
                 % Convert what we can to numerical data
@@ -105,11 +106,20 @@ classdef filter_database < handle
                 % Apply character filters
                 char_idx = filter_database.filter_char(self.db(isnan(temp), :), data);
                 
-                data = logical(num_idx .* char_idx);
+                % Return logical indices to keep and column names to keep
+                idx = logical(num_idx .* char_idx);
+                cols = setdiff(data.Properties.VariableNames, self.col_filters);
             else
-                data = true(length(data{:, 1}), 1);
+                idx = true(length(data{:, 1}), 1);
+                cols = setdiff(data.Properties.VariableNames, self.col_filters);
             end
             
+        end
+        
+        function filter_col(self, col_name)
+            %FILTER_COL - adds the given column to the list to remove
+           
+            self.col_filters = horzcat(self.col_filters, col_name);
         end
         
         function reset(self)

@@ -433,6 +433,7 @@ function processParams(paramsStruct,mtable,jtable)
                 end
                 % Add the main menu item
                 jMenuItem = javax.swing.JMenuItem(get(cmChildren(cmChildIdx),'Label'));
+                jMenuItem = handle(jMenuItem,'CallbackProperties');
                 set(jMenuItem,'ActionPerformedCallback',get(cmChildren(cmChildIdx),'Callback'));
                 popupMenu.add(jMenuItem);
                 itemNum = itemNum + 1;

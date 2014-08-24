@@ -322,19 +322,26 @@ classdef filter_interface < handle
                 self.GreaterThanMenu, self.EqualToMenu, self.NotEqualMenu];
             align(menus_list,'Left','Top');
             
+            %% Create Context Menu
+            col_delete = uicontextmenu('Parent', self.Window);
+            uimenu(col_delete,'Label','Delete Column','Callback',...
+                @(h,vars)filter_interface.delete_col(h,vars,self));
+            %set(self.FieldsMenu, 'uicontextmenu', col_delete);
+            
+            
             %% Initialize State
             self.init_fields();
             self.update_values();
             self.init_filters_table();
             self.update_filters();
-            self.setup_table(tableLayout);
+            self.setup_table(tableLayout, col_delete);
             
         end
     end
     
     %% Public Methods
     methods
-        function setup_table(self, parent)
+        function setup_table(self, parent, context_menu)
             
             % Add jar to path if it doesn't exist
             if ~any(ismember(javaclasspath, which('TableSorter.jar')))
@@ -343,7 +350,8 @@ classdef filter_interface < handle
             
             cols = self.current_fields;
             self.table = createTable(parent.double, cols', table2cell(self.data_orig), ...
-                'Buttons', false );
+                'Buttons', false, 'UIContextMenu', context_menu);
+            set(self.table, 'Editable', 0);
             %uitable('Parent', tableLayout.double, 'Data', magic(3), 'ColumnName', {'A', 'B', 'C'});
             
         end
@@ -418,6 +426,30 @@ classdef filter_interface < handle
             %filter configuration
             
             self.filters = filter_database();
+        end
+        
+        function col = get_selected_col(self)
+            %GET_SELECTED_COL - returns the name of the selected column
+            %from the java table object
+            
+            h = get(self.table);
+            h2 = get(h.Table);
+            
+            % Get the selected Java Table column
+            col = h2.SelectedColumn + 1;
+            cols = cellstr(char(h.ColumnNames));
+            col = cols{col};
+        end
+        
+        function update_table(self)
+            
+            [rows, cols] = self.filters.apply_filters(self.data);
+            
+            % Filter rows if we have row filters applied
+            if sum(rows) < length(self.data_orig{:, 1})
+                set(self.table, 'Data', table2cell(self.data_orig(rows, :)));
+            end
+
         end
     end
     
@@ -565,6 +597,7 @@ classdef filter_interface < handle
             end
             
             self.update_filters();
+            self.update_table();
         end
         
         function remove_filter(source, ~, self)
@@ -593,6 +626,8 @@ classdef filter_interface < handle
                 db.remove_filter(names, 'filter_name', 'NotEqual');
                 
             end
+            
+            self.update_table();
         end
         
         function reset_filters(~, ~, self)
@@ -601,6 +636,7 @@ classdef filter_interface < handle
             self.filters.reset();
             self.update_values();
             self.update_filters();
+            self.update_table();
         end
         
         function view_data(~, ~, self)
@@ -609,9 +645,7 @@ classdef filter_interface < handle
             %the workspace, then opens it in the variable viewer.
             
             % Get the filtered data
-            filt_data = self.filters.apply_filters(self.data);
-            cols = self.current_fields;
-            set(self.table, 'ColumnNames', cols', 'Data', table2cell(self.data_orig(filt_data, :)));
+            self.update_table();
             %filt_name = strcat(self.data_name, '_temp');
             
             % Store it into workspace, and open it
@@ -632,6 +666,24 @@ classdef filter_interface < handle
         
         function save_data(source,~,self)
             pass;
+        end
+        
+        function delete_col(~,~,self)
+            
+            h = get(self.table, 'table');
+            sel = h.getColumnModel.getSelectedColumns;
+            %tab_cols = cellstr(char(tbl.ColumnNames));
+            
+            % Loop through cols to delete and remove them from the jtable
+            if ~isempty(sel)
+                for i = 1:length(sel)
+                    %[~, loc] = ismember(del_cols{i}, tab_cols);
+                    col_mod = h.getColumnModel;
+                    col = col_mod.getColumn(sel);
+                    h.removeColumn(col);
+                end
+            end
+            
         end
         
         function on_exit(source,~,self)
