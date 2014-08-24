@@ -1,4 +1,4 @@
-classdef (Abstract) data_filter < handle
+classdef data_filter < handle
     %DATA_FILTER - One line summary of this class goes here
     %   DATA_FILTER has a first line of the description of myClass, but
     %   descriptions can include multiple lines of text if needed.
@@ -34,11 +34,6 @@ classdef (Abstract) data_filter < handle
     % Update:
     
     %% Properties
-    properties (Abstract, Constant)
-        EQUALITIES
-        COMPONENTS
-    end
-    
     properties
         % state
         enabled
