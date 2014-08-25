@@ -36,11 +36,12 @@ classdef filter_database < handle
     %% Properties
     properties
         db
-        col_filters = {}
+        col_filters
     end
     
     properties (Access = private)
-        
+        verified
+        make_unique = 0
     end
     
     %% Methods
@@ -54,6 +55,9 @@ classdef filter_database < handle
         end
         
         function init_table(self)
+            %INIT_TABLE - initializes the filter data base state and is
+            %used to reset all filters if desired.
+            
             fields = {'value', 'column', 'filter_type', 'filter_name', 'enabled'};
             init_data = {{}, {}, {}, {}, []};
             
@@ -63,11 +67,16 @@ classdef filter_database < handle
                 header.(fields{i}) = init_data{i};
             end
             self.db = struct2table(header);
+            self.verified = {};
+            self.col_filters = {};
         end
         
         function add_filter(self, vals, col_name, filter_type)
             %ADD_MULT_FILTERS - for each value, it adds a new row to the
             %database
+            
+            % Clear last added
+            self.verified = self.db.filter_name;
             
             for i = 1:length(vals)
                 row = [];
@@ -76,9 +85,18 @@ classdef filter_database < handle
                 row.filter_type = cellstr(filter_type);
                 row.filter_name = cellstr(filter_database.append_col_to_filter(col_name, vals{i}));
                 row.enabled = 1;
-                self.db = [self.db; struct2table(row)];
+                row = struct2table(row);
+                self.db = [self.db; row];
                 self.db = unique(self.db);
             end
+        end
+        
+        function clear_last(self)
+            %CLEAR_LAST - only keeps filters that were verified, defined as
+            %existing through to a second add_filter call. This way if we
+            %don't like the filter results, we can always revert.
+            
+            self.db = self.db(ismember(self.db.filter_name, self.verified) , :);
         end
         
         function remove_filter(self, names, col_name, filter_type)
@@ -94,7 +112,11 @@ classdef filter_database < handle
             filters = self.db{strcmp(self.db.(type_col), filter_type), cols};
         end
         
-        function [idx, cols] = apply_filters(self, data)
+        function [idx, cols, unq_idx] = apply_filters(self, data)
+            %APPLY_FILTERS - combines current state of column, numerical,
+            %and categorical filters and returns the result as what should
+            %not be filtered, aka should be kept. This is via a logical 
+            %array for rows, and the char array of the column names.
             
             if ~isempty(self.db)
                 % Convert what we can to numerical data
@@ -114,6 +136,16 @@ classdef filter_database < handle
                 cols = setdiff(data.Properties.VariableNames, self.col_filters);
             end
             
+            if self.make_unique
+                [~, unq_idx] = unique(data(idx, cols));
+            else
+                unq_idx = [];
+            end
+            
+        end
+        
+        function toggle_unique(self)
+            self.make_unique = ~self.make_unique;
         end
         
         function filter_col(self, col_name)

@@ -76,6 +76,8 @@ classdef filter_interface < handle
         data_name
         filtered_data
         table
+        SaveButton
+        SaveDialog
     end
     
     %% Dependent Properties
@@ -140,7 +142,7 @@ classdef filter_interface < handle
             % Setup Data Menu
             self.DataMenu = uimenu( self.Window, 'Label', 'Export Data' );
             uimenu( self.DataMenu, 'Label', 'Save to Workspace', 'Callback', ...
-                @(h,vars)filter_interface.saveData(h,vars,self) );
+                @(h,vars)filter_interface.save_data(h,vars,self) );
             % Setup Help menu
             helpMenu = uimenu( self.Window, 'Label', 'Help' );
             uimenu( helpMenu, 'Label', 'Documentation', 'Callback', @filter_interface.on_help );
@@ -310,14 +312,24 @@ classdef filter_interface < handle
             control_buttons = uiextras.HBox( 'Parent', control_panel );
             uicontrol( 'String', 'Reset', 'Parent', control_buttons, ...
                 'Callback', @(h,vars)filter_interface.reset_filters(h,vars,self));
-            uicontrol( 'String', 'View Data', 'Parent', control_buttons, ...
-                'Callback', @(h,vars)filter_interface.view_data(h,vars,self));
+            self.SaveButton = uicontrol( 'String', 'Save Data', 'Parent', control_buttons, ...
+                'TooltipString', 'Right click will also open the saved data', ...
+                'ButtonDownFcn', @(h,vars)filter_interface.save_data(h,vars,self));
             
-            control_options = uiextras.HBox( 'Parent', control_panel );
+            % Setup Input Box for Saving
+            input_box_container = uiextras.HBox( 'Parent', control_panel );
+            self.SaveDialog = uicontrol('Style', 'edit', 'String', '_temp', ...
+                'Parent', input_box_container, 'BackgroundColor', [1 1 1]);
             
-            set(control_panel, 'Sizes', [50 -1]);
+            % Setup checkbox options
+            control_options = uiextras.VBox( 'Parent', control_panel );
+            uicontrol('Style', 'checkbox', 'String', 'Unique Rows', ...
+                'Parent', control_options, 'Value', 0, ...
+                'Callback', @(h,vars)filter_interface.check_unique(h,vars,self));
             
-            %% Set menu alignment
+            set(control_panel, 'Sizes', [20 20 -1]);
+            
+            % Set menu alignment
             menus_list = [self.FieldsMenu, self.ValuesMenu, self.LessThanMenu, ...
                 self.GreaterThanMenu, self.EqualToMenu, self.NotEqualMenu];
             align(menus_list,'Left','Top');
@@ -326,7 +338,6 @@ classdef filter_interface < handle
             col_delete = uicontextmenu('Parent', self.Window);
             uimenu(col_delete,'Label','Delete Column','Callback',...
                 @(h,vars)filter_interface.delete_col(h,vars,self));
-            %set(self.FieldsMenu, 'uicontextmenu', col_delete);
             
             
             %% Initialize State
@@ -442,14 +453,52 @@ classdef filter_interface < handle
         end
         
         function update_table(self, varargin)
+            %UPDATE_TABLE - updates the data table if there is some kind of
+            %filter applied
             
-            [rows, cols] = self.filters.apply_filters(self.data);
+            [rows, ~, ~] = self.filters.apply_filters(self.data);
             
             % Filter rows if we have row filters applied
-            if sum(rows) < length(self.data_orig{:, 1}) || ~isempty(varargin)
-                set(self.table, 'Data', table2cell(self.data_orig(rows, :)));
+            if ~any(rows)
+                
+                % If the filter results in no rows, revert to last state
+                % and warn user
+                self.filters.clear_last();
+                self.update_filters();
+                self.force_update();
+                
+            elseif sum(rows) < length(self.data_orig{:, 1}) || ~isempty(varargin)
+                
+                self.force_update();
             end
-
+        end
+        
+        function force_update(self)
+            %FORCE_UPDATE - used to force refreshing the table with current
+            %filters applied, avoiding any conditional logic. Should be
+            %used with care, since it could filter everything in some
+            %cases.
+            
+            [rows, ~, unq_rows] = self.filters.apply_filters(self.data);
+            
+            tbl = self.data_orig(rows, :);
+            if ~isempty(unq_rows)
+                tbl = tbl(unq_rows, :);
+            end
+            
+            % Handle Matlab's inconsistent cell arrays. If a table is a
+            % single row it is returned differently than if it is more than
+            % one row
+            sz = size(tbl);
+            if sz(1) == 1
+                %tbl = vertcat(table2cell(tbl), repmat({}, 1, sz(2)));
+                tbl = table2cell([tbl; tbl]);
+            else
+                tbl = table2cell(tbl);
+            end
+            
+            % Set the data of the java table
+            set(self.table, 'Data', tbl);
         end
     end
     
@@ -637,7 +686,7 @@ classdef filter_interface < handle
             self.filters.reset();
             self.update_values();
             self.update_filters();
-            self.update_table();
+            self.update_table('force');
         end
         
         function view_data(~, ~, self)
@@ -647,11 +696,6 @@ classdef filter_interface < handle
             
             % Get the filtered data
             self.update_table();
-            %filt_name = strcat(self.data_name, '_temp');
-            
-            % Store it into workspace, and open it
-            %assignin('base', filt_name, filt_data);
-            %openvar(filt_name);
         end
         
         function update_values_callback(~, ~, self)
@@ -665,11 +709,30 @@ classdef filter_interface < handle
             pass;
         end
         
-        function save_data(source,~,self)
-            pass;
+        function save_data(~,~,self)
+            %SAVE_DATA - saves the current filter configuration against the
+            %data into the workspace.
+            
+            
+            buttonType = get(self.Window, 'SelectionType');
+            
+            [rows, cols] = self.filters.apply_filters(self.data);
+            filt_data = self.data_orig(rows, cols);
+            filt_name = strcat(self.data_name, get(self.SaveDialog, 'String'));
+            assignin('base', filt_name, filt_data);
+            
+            switch buttonType
+                case 'alt'
+                    openvar(filt_name);
+            end
+%             if source == self.SaveButton
+%                 openvar(filt_name);
+%             end
         end
         
         function delete_col(~,~,self)
+            %DELETE_COL - removes the selected column in the data table
+            %through a right click context menu
             
             h = get(self.table, 'table');
             sel = h.getColumnModel.getSelectedColumns;
@@ -681,10 +744,20 @@ classdef filter_interface < handle
                     %[~, loc] = ismember(del_cols{i}, tab_cols);
                     col_mod = h.getColumnModel;
                     col = col_mod.getColumn(sel);
+                    col_name = cellstr(col.getHeaderValue);
+                    
+                    self.filters.filter_col(col_name);
                     h.removeColumn(col);
                 end
             end
             
+        end
+        
+        function check_unique(~, ~, self)
+            
+            self.filters.toggle_unique();
+            self.update_filters();
+            self.update_table('force');
         end
         
         function on_exit(source,~,self)
