@@ -353,6 +353,9 @@ classdef filter_interface < handle
     %% Public Methods
     methods
         function setup_table(self, parent, context_menu)
+            %SETUP_TABLE - initializes the table sorter jar file into the
+            %java path, and creates the table layout with initial table
+            %data
             
             % Add jar to path if it doesn't exist
             if ~any(ismember(javaclasspath, which('TableSorter.jar')))
@@ -413,7 +416,10 @@ classdef filter_interface < handle
         end
         
         function update_button_states(self)
-
+            %UPDATE_BUTTON_STATES - turns the enabled property on/off on
+            %the add buttons for the numerical comparisons. This limits the
+            %user from adding char data into the numerical filter menus.
+            
             % See if we have numerical values in this column
             vals = str2double(self.current_values);
             
@@ -754,6 +760,8 @@ classdef filter_interface < handle
         end
         
         function check_unique(~, ~, self)
+            %CHECK_UNIQUE - callback for the unique checkbox. The filter
+            %table's unique flag is toggled, then the table is updated.
             
             self.filters.toggle_unique();
             self.update_filters();
@@ -761,7 +769,7 @@ classdef filter_interface < handle
         end
         
         function on_exit(source,~,self)
-            %ONEXIT - Clears the aware object from workspace on exit
+            %ONEXIT - clears the aware object from workspace on exit
             
             delete(self);
             delete(source);
